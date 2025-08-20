@@ -74,6 +74,17 @@ export default function TestPage() {
           <li>• 데이터 persist (설정 저장)</li>
         </ul>
       </div>
+      
+      <div className="mt-6 p-4 bg-purple-50 rounded-lg text-sm">
+        <h3 className="font-semibold mb-2">📂 프로젝트 폴더 구조 현황:</h3>
+        <div className="font-mono text-xs space-y-1 text-gray-700">
+          <div>✅ store/ - 상태 관리 (mapStore 구현 완료)</div>
+          <div>✅ components/ - UI 컴포넌트 (구조 준비 완료)</div>
+          <div>✅ types/ - TypeScript 타입 (기본 타입 완료)</div>
+          <div>✅ utils/ - 유틸리티 함수 (기본 함수 완료)</div>
+        </div>
+        <p className="mt-2 text-gray-600">각 폴더의 README.md에서 자세한 사용법 확인 가능</p>
+      </div>
     </div>
   );
 }

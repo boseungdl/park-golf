@@ -24,14 +24,12 @@
  */
 
 import { create } from 'zustand';
+import type { Coordinates } from '../types';
 
 interface MapState {
-  // 지도 기본 설정
-  center: {
-    lat: number;
-    lng: number;
-  };
-  zoom: number;
+  // 지도 화면 상태 - 사용자가 보고 있는 것들
+  center: Coordinates;  // 지도 중심 좌표
+  zoom: number;         // 확대/축소 레벨
   
   // 액션 함수들
   setCenter: (lat: number, lng: number) => void;
