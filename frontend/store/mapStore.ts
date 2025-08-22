@@ -35,7 +35,15 @@ import {
   type DistrictDongMapping 
 } from '../utils/districtMapping';
 
-// 공원 데이터 타입 정의
+// MCLP 분석 데이터 타입 정의
+export interface MclpData {
+  총수요지수: number;        // 총 수요지수 (기존 score)
+  포함행정동수: number;      // 포함 행정동 수 (기존 coveredDongs)
+  originalName: string;     // 원본 공원명
+  매칭유사도: number;       // 디버깅용 매칭 유사도
+}
+
+// 공원 데이터 타입 정의 (MCLP 통합)
 export interface ParkData {
   구: string;                    // 구명 (예: "종로", "강남")
   공원종류: string;              // 공원 유형
@@ -46,6 +54,7 @@ export interface ParkData {
   위도: string | number;        // 위도 (빈 문자열 또는 숫자)
   경도: string | number;        // 경도 (빈 문자열 또는 숫자)
   지오코딩메모: string;         // 지오코딩 상태
+  mclpData?: MclpData | null;   // MCLP 분석 데이터 (통합)
 }
 
 // 유효한 공원 데이터 (좌표가 있는 것만)
@@ -98,7 +107,7 @@ interface MapState {
   
   // 공원 데이터 관련 액션
   getSelectedDistrictParks: () => ValidParkData[];  // 선택된 구의 공원들 반환
-  getParksWithinBuffer: (centerPark: ValidParkData, radiusKm: number) => ValidParkData[]; // 버퍼 내 공원들 반환
+  getParksWithinBuffer: (centerLat: number, centerLng: number, radiusKm: number) => ValidParkData[];  // 버퍼 내 공원들 반환
 }
 
 // 서울시 중심 좌표
@@ -194,7 +203,9 @@ export const useMapStore = create<MapState>()((set, get) => ({
   
   // 구 선택 액션
   selectDistrict: (districtName: string) => {
-    const { districtDongMapping } = get();
+    const { districtDongMapping, selectedPark } = get();
+    
+    console.log(`🏛️ selectDistrict 호출됨: ${districtName}, 현재 selectedPark:`, selectedPark?.["공 원 명"] || 'null');
     
     if (!districtDongMapping || !districtDongMapping[districtName]) {
       console.warn(`구를 찾을 수 없음: ${districtName}`);
@@ -208,6 +219,8 @@ export const useMapStore = create<MapState>()((set, get) => ({
       selectedDistrict: districtName,
       selectedDongs: dongCodes,
     });
+    
+    console.log(`🏛️ selectDistrict 완료: ${districtName}, selectedPark는 변경되지 않음`);
   },
   
   // 선택 해제 액션
@@ -260,7 +273,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   // 공원 데이터 로딩 액션
   loadParksData: async () => {
     try {
-      const response = await fetch('/data/seoul-parks-Sheet1.json');
+      const response = await fetch('/data/park-mclp-integrated.json');
       if (!response.ok) throw new Error('Failed to load parks data');
       const parksData: ParkData[] = await response.json();
       
@@ -373,28 +386,14 @@ export const useMapStore = create<MapState>()((set, get) => ({
     return districtParks;
   },
 
-  // 특정 공원 중심으로 반경 내 공원들 반환
-  getParksWithinBuffer: (centerPark: ValidParkData, radiusKm: number): ValidParkData[] => {
+  // 버퍼 내 공원들 반환
+  getParksWithinBuffer: (centerLat: number, centerLng: number, radiusKm: number): ValidParkData[] => {
     const { validParks } = get();
     
-    if (!validParks.length) {
-      return [];
-    }
-
-    // 중심 공원 제외하고 거리 계산
-    const parksWithDistance = validParks
-      .filter(park => park["공 원 명"] !== centerPark["공 원 명"]) // 중심 공원 제외
-      .map(park => ({
-        ...park,
-        distance: calculateDistance(
-          centerPark.위도, centerPark.경도,
-          park.위도, park.경도
-        )
-      }))
-      .filter(park => park.distance <= radiusKm) // 반경 내만 필터링
-      .sort((a, b) => a.distance - b.distance); // 거리순 정렬
-
-    console.log(`🎯 ${centerPark["공 원 명"]} 반경 ${radiusKm}km 내 공원: ${parksWithDistance.length}개`);
-    return parksWithDistance;
+    return validParks.filter(park => {
+      const distance = calculateDistance(centerLat, centerLng, park.위도, park.경도);
+      return distance <= radiusKm;
+    });
   },
+
 }));

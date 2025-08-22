@@ -209,7 +209,7 @@ export default function MapView() {
           'fill-color': '#FFC107',   // 좀 더 진한 앰버 색상
           'fill-opacity': 0.6        // 투명도 약간 낮춤
         },
-        filter: ['in', 'adm_cd', ''] // 초기에는 아무것도 표시하지 않음
+        filter: ['in', 'adm_cd', ''] as any // 초기에는 아무것도 표시하지 않음
       });
     }
 
@@ -224,7 +224,7 @@ export default function MapView() {
           'line-width': 0.8,         // 더 얇게
           'line-opacity': 0.5        // 더 투명하게
         },
-        filter: ['in', 'adm_cd', ''] // 초기에는 아무것도 표시하지 않음
+        filter: ['in', 'adm_cd', ''] as any // 초기에는 아무것도 표시하지 않음
       });
     }
 
@@ -272,7 +272,7 @@ export default function MapView() {
           'text-halo-width': 2,
           'text-opacity': 0.9
         },
-        filter: ['in', 'adm_cd', ''] // 초기에는 아무것도 표시하지 않음
+        filter: ['in', 'adm_cd', ''] as any // 초기에는 아무것도 표시하지 않음
       });
     }
 
@@ -295,7 +295,17 @@ export default function MapView() {
             setImbalanceView(false);
           }
           
-          // 3. 구 선택 및 행정동 표시
+          // 3. 기존 공원 선택 해제 (버퍼 제거) - 최신 상태를 직접 가져오기
+          const currentSelectedPark = useMapStore.getState().selectedPark;
+          console.log('🔍 최신 selectedPark 상태 확인:', currentSelectedPark?.["공 원 명"] || 'null');
+          if (currentSelectedPark) {
+            console.log('🏞️ 공원 선택 해제 호출 중...');
+            clearParkSelection();
+          } else {
+            console.log('🏞️ selectedPark가 null이어서 clearParkSelection() 호출 안됨');
+          }
+          
+          // 4. 구 선택 및 행정동 표시
           selectDistrict(districtName);
           
           // 4. 선택된 구로 줌인
@@ -347,9 +357,9 @@ export default function MapView() {
     if (!map.current || !selectedDongs.length) {
       // 선택 해제 시 행정동 숨김 및 구 경계선 원래대로 + 줌 리셋
       if (map.current?.getLayer('dongs-fill')) {
-        map.current.setFilter('dongs-fill', ['in', 'adm_cd', '']);
-        map.current.setFilter('dongs-line', ['in', 'adm_cd', '']);
-        map.current.setFilter('dongs-label', ['in', 'adm_cd', '']);
+        map.current.setFilter('dongs-fill', ['in', 'adm_cd', ''] as any);
+        map.current.setFilter('dongs-line', ['in', 'adm_cd', ''] as any);
+        map.current.setFilter('dongs-label', ['in', 'adm_cd', ''] as any);
       }
       if (map.current?.getLayer('districts-line')) {
         map.current.setPaintProperty('districts-line', 'line-opacity', 0.7);
@@ -374,7 +384,7 @@ export default function MapView() {
     console.log('🎯 선택된 구의 행정동 표시:', selectedDistrict, selectedDongs.length + '개');
 
     // 선택된 행정동들만 표시
-    const filter = ['in', 'adm_cd', ...selectedDongs];
+    const filter: any = ['in', 'adm_cd', ...selectedDongs];
     
     if (map.current?.getLayer('dongs-fill')) {
       map.current.setFilter('dongs-fill', filter);
@@ -445,6 +455,15 @@ export default function MapView() {
             <div><span class="font-medium">종류:</span> ${park.공원종류}</div>
             <div><span class="font-medium">면적:</span> ${park["면 적 합 계(㎡)"].toLocaleString()}㎡</div>
             ${park.질의주소 ? `<div><span class="font-medium">주소:</span> ${park.질의주소}</div>` : ''}
+            ${park.mclpData && park.mclpData.총수요지수 !== null && !isNaN(park.mclpData.총수요지수) ? `
+              <div class="mt-2 pt-2 border-t border-gray-200">
+                <div class="font-medium text-blue-700 mb-1">📊 MCLP 분석 정보</div>
+                <div><span class="font-medium">포함 행정동:</span> ${park.mclpData.포함행정동수}개</div>
+                <div><span class="font-medium">총 수요지수:</span> ${park.mclpData.총수요지수.toFixed(3)}</div>
+              </div>
+            ` : `<div class="mt-2 pt-2 border-t border-gray-200 text-yellow-600">
+              <div class="text-xs">⚠️ MCLP 분석 데이터 없음</div>
+            </div>`}
           </div>
         </div>
       `);
@@ -452,7 +471,7 @@ export default function MapView() {
       // 마커에 팝업 연결
       marker.setPopup(popup);
 
-      // 마커 클릭 이벤트 (5km 버퍼 표시)
+      // 마커 클릭 이벤트 (공원 선택 및 5km 버퍼 표시)
       marker.getElement().addEventListener('click', (e) => {
         console.log('🖱️ 마커 클릭됨:', park["공 원 명"]);
         e.stopPropagation(); // 이벤트 버블링 방지
@@ -511,9 +530,9 @@ export default function MapView() {
     coordinates.push(coordinates[0]); // 원을 닫기 위해 첫 점 추가
 
     const bufferGeoJSON = {
-      type: 'Feature',
+      type: 'Feature' as const,
       geometry: {
-        type: 'Polygon',
+        type: 'Polygon' as const,
         coordinates: [coordinates]
       },
       properties: {
@@ -624,14 +643,14 @@ export default function MapView() {
             onClick={() => clearSelection()}
             className="bg-white shadow-lg rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-200"
           >
-            선택 해제
+            구 선택 해제
           </button>
           {selectedPark && (
             <button
               onClick={() => clearParkSelection()}
               className="bg-blue-500 shadow-lg rounded-lg px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
             >
-              버퍼 해제
+              공원 선택 해제
             </button>
           )}
         </div>
@@ -696,7 +715,7 @@ export default function MapView() {
         {selectedPark && (
           <div className="bg-green-50 rounded p-2 mb-3 border border-green-200">
             <div className="font-medium text-green-800 mb-1">
-              🎯 선택된 공원 (5km 버퍼)
+              🎯 선택된 공원
             </div>
             <div className="text-sm font-semibold text-gray-800">{selectedPark["공 원 명"]}</div>
             <div className="space-y-1 text-xs text-gray-600 mt-1">
@@ -705,33 +724,24 @@ export default function MapView() {
               <div><span className="font-medium">위치:</span> {selectedPark["위    치"]}</div>
             </div>
             
-            {/* 버퍼 내 공원 분석 정보 */}
-            {(() => {
-              const bufferParks = getParksWithinBuffer(selectedPark, 5);
-              const totalArea = bufferParks.reduce((sum, park) => sum + park["면 적 합 계(㎡)"], 0);
-              const parkTypes = [...new Set(bufferParks.map(park => park.공원종류))];
-              
-              return (
-                <div className="mt-2 pt-2 border-t border-green-200">
-                  <div className="text-xs font-medium text-blue-700 mb-1">
-                    💙 5km 반경 내 공원 분석
-                  </div>
-                  <div className="space-y-1 text-xs text-gray-600">
-                    <div><span className="font-medium">공원 수:</span> {bufferParks.length}개</div>
-                    <div><span className="font-medium">총 면적:</span> {totalArea.toLocaleString()}㎡</div>
-                    <div><span className="font-medium">공원 유형:</span> {parkTypes.slice(0, 3).join(', ')}{parkTypes.length > 3 ? ' 등' : ''}</div>
-                    {bufferParks.length > 0 && (
-                      <div className="mt-1">
-                        <span className="font-medium">가장 가까운 공원:</span>
-                        <div className="ml-2 text-gray-500">
-                          {bufferParks[0]["공 원 명"]} ({(bufferParks[0] as any).distance?.toFixed(1)}km)
-                        </div>
-                      </div>
-                    )}
-                  </div>
+            {/* MCLP 분석 정보 */}
+            {selectedPark.mclpData && selectedPark.mclpData.총수요지수 !== null && !isNaN(selectedPark.mclpData.총수요지수) ? (
+              <div className="mt-2 pt-2 border-t border-green-200">
+                <div className="text-xs font-medium text-blue-700 mb-1">
+                  📊 MCLP 분석 정보
                 </div>
-              );
-            })()}
+                <div className="space-y-1 text-xs text-gray-600">
+                  <div><span className="font-medium">포함 행정동:</span> {selectedPark.mclpData.포함행정동수}개</div>
+                  <div><span className="font-medium">총 수요지수:</span> {selectedPark.mclpData.총수요지수.toFixed(3)}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 pt-2 border-t border-green-200">
+                <div className="text-xs text-yellow-600">
+                  ⚠️ MCLP 분석 데이터 없음
+                </div>
+              </div>
+            )}
           </div>
         )}
         
