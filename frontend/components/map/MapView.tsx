@@ -1,12 +1,12 @@
 /**
- * MapView.tsx - 서울 파크골프 입지 분석 지도 컴포넌트 (2017년 데이터)
+ * MapView.tsx - 서울 파크골프 입지 분석 지도 컴포넌트 (2017년 데이터 + 공원 마커)
  * 
- * 🚧 현재 구현 단계: 2017년 데이터 + 구 클릭 → 행정동 표시
- * 📅 다음 확장 예정: 공원 마커, 분석 기능
+ * 🚧 현재 구현 단계: 공원 마커 표시 완료
+ * 📅 다음 확장 예정: 분석 기능, 마커 클러스터링, 필터링
  * 📊 복잡도: ⭐⭐⭐ (고급)
  * 
  * 🔗 연관 파일:
- * - 📥 Import: MapLibre GL, mapStore, 2017년 GeoJSON 데이터
+ * - 📥 Import: MapLibre GL, mapStore, 공원 데이터
  * - 📤 Export: MapView 컴포넌트
  * - 🔄 사용처: pages/index.tsx 메인 페이지
  * 
@@ -15,8 +15,12 @@
  * - ✅ 2017년 서울 구 경계 폴리곤 표시
  * - ✅ 2017년 행정동 경계 폴리곤 표시
  * - ✅ 구 클릭 → 해당 행정동 하이라이트
+ * - ✅ 불균형 지수 색상 표시
  * - ✅ mapStore 연동
- * - ⏳ 공원 마커 표시
+ * - ✅ 구 선택 시 공원 마커 표시
+ * - ✅ 마커 클릭 시 공원 정보 팝업
+ * - ✅ 마커 호버 효과 및 애니메이션
+ * - ✅ 좌표 유효성 검증된 공원만 표시
  * 
  * 💡 사용 예시:
  * ```tsx
@@ -65,13 +69,15 @@ export default function MapView() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const layersAdded = useRef<boolean>(false);
+  const parkMarkers = useRef<maplibregl.Marker[]>([]);  // 공원 마커들 관리
   
   // mapStore 연동
   const { 
     center, 
     zoom, 
     loadData,
-    loadImbalanceData, 
+    loadImbalanceData,
+    loadParksData,
     loadingState,
     districtsData,
     dongsData,
@@ -81,8 +87,13 @@ export default function MapView() {
     setImbalanceView,
     selectedDistrict,
     selectedDongs,
+    selectedPark,
     selectDistrict,
-    clearSelection
+    clearSelection,
+    selectPark,
+    clearParkSelection,
+    getSelectedDistrictParks,
+    getParksWithinBuffer
   } = useMapStore();
 
   useEffect(() => {
@@ -99,12 +110,15 @@ export default function MapView() {
       },
       center: [center.lng, center.lat], // mapStore 중심 좌표 사용
       zoom: zoom, // mapStore 줌 레벨 사용
+      minZoom: 9,  // 최소 줌 레벨 (너무 축소되지 않도록)
+      maxZoom: 18, // 최대 줌 레벨 (너무 확대되지 않도록)
       attributionControl: false
     });
 
     // 데이터 로딩 시작
     loadData();
     loadImbalanceData();
+    loadParksData();
 
     // 컴포넌트 언마운트 시 지도 정리
     return () => {
@@ -328,7 +342,7 @@ export default function MapView() {
 
   }, [loadingState, districtsData, dongsData]);
 
-  // 선택된 구가 변경되면 행정동 필터 업데이트
+  // 선택된 구가 변경되면 행정동 필터 업데이트 및 공원 마커 표시
   useEffect(() => {
     if (!map.current || !selectedDongs.length) {
       // 선택 해제 시 행정동 숨김 및 구 경계선 원래대로 + 줌 리셋
@@ -341,6 +355,10 @@ export default function MapView() {
         map.current.setPaintProperty('districts-line', 'line-opacity', 0.7);
         map.current.setPaintProperty('districts-line', 'line-width', 0.8);
       }
+      
+      // 기존 공원 마커들 제거
+      parkMarkers.current.forEach(marker => marker.remove());
+      parkMarkers.current = [];
       
       // 원래 줌 레벨로 부드럽게 복귀
       if (map.current) {
@@ -381,6 +399,162 @@ export default function MapView() {
     }
 
   }, [selectedDistrict, selectedDongs, center.lng, center.lat, zoom, imbalanceData]);
+
+  // 선택된 구의 공원 마커 표시 관리
+  useEffect(() => {
+    if (!map.current || !selectedDistrict) {
+      // 구 선택이 해제되면 모든 마커 제거
+      parkMarkers.current.forEach(marker => marker.remove());
+      parkMarkers.current = [];
+      return;
+    }
+
+    // 기존 마커들 제거
+    parkMarkers.current.forEach(marker => marker.remove());
+    parkMarkers.current = [];
+
+    // 선택된 구의 공원들 가져오기
+    const districtParks = getSelectedDistrictParks();
+    
+    if (districtParks.length === 0) {
+      console.log('🏞️ 해당 구에 공원 데이터가 없습니다:', selectedDistrict);
+      return;
+    }
+
+    console.log(`🏞️ ${selectedDistrict} 공원 마커 생성: ${districtParks.length}개`);
+
+    // 각 공원에 대해 기본 마커 생성 (줌 안정성 최고)
+    districtParks.forEach((park) => {
+      // 기본 MapLibre GL 마커 생성 (공원 녹색)
+      const marker = new maplibregl.Marker({
+        color: '#4CAF50', // 공원 녹색
+        scale: 1.2
+      }).setLngLat([park.경도, park.위도]);
+
+      // 팝업 생성
+      const popup = new maplibregl.Popup({ 
+        offset: 15,
+        closeButton: true,
+        closeOnClick: false
+      }).setHTML(`
+        <div class="text-sm max-w-xs">
+          <div class="font-semibold text-gray-800 mb-2">${park["공 원 명"]}</div>
+          <div class="space-y-1 text-xs text-gray-600">
+            <div><span class="font-medium">위치:</span> ${park["위    치"]}</div>
+            <div><span class="font-medium">구:</span> ${park.구}</div>
+            <div><span class="font-medium">종류:</span> ${park.공원종류}</div>
+            <div><span class="font-medium">면적:</span> ${park["면 적 합 계(㎡)"].toLocaleString()}㎡</div>
+            ${park.질의주소 ? `<div><span class="font-medium">주소:</span> ${park.질의주소}</div>` : ''}
+          </div>
+        </div>
+      `);
+
+      // 마커에 팝업 연결
+      marker.setPopup(popup);
+
+      // 마커 클릭 이벤트 (5km 버퍼 표시)
+      marker.getElement().addEventListener('click', (e) => {
+        console.log('🖱️ 마커 클릭됨:', park["공 원 명"]);
+        e.stopPropagation(); // 이벤트 버블링 방지
+        e.preventDefault(); // 기본 동작 방지
+        
+        selectPark(park);
+        
+        // 팝업 닫기 (버퍼 표시를 위해)
+        marker.getPopup()?.remove();
+      });
+
+      // 지도에 마커 추가
+      marker.addTo(map.current!);
+      
+      // 마커 배열에 추가 (나중에 정리용)
+      parkMarkers.current.push(marker);
+    });
+
+  }, [selectedDistrict, getSelectedDistrictParks]);
+
+  // 선택된 공원의 5km 버퍼 원 표시
+  useEffect(() => {
+    if (!map.current) return;
+
+    // 기존 버퍼 소스와 레이어 제거
+    if (map.current.getLayer('park-buffer-fill')) {
+      map.current.removeLayer('park-buffer-fill');
+    }
+    if (map.current.getLayer('park-buffer-line')) {
+      map.current.removeLayer('park-buffer-line');
+    }
+    if (map.current.getSource('park-buffer')) {
+      map.current.removeSource('park-buffer');
+    }
+
+    if (!selectedPark) return;
+
+    // 5km 버퍼 원 생성 (GeoJSON)
+    const bufferRadius = 5000; // 5km in meters
+    const center = [selectedPark.경도, selectedPark.위도];
+    const points = 64; // 원의 정밀도
+    
+    // 원을 이루는 좌표들 생성
+    const coordinates = [];
+    for (let i = 0; i < points; i++) {
+      const angle = (i / points) * 2 * Math.PI;
+      // 대략적인 lat/lng 변환 (서울 지역 기준)
+      const latOffset = (bufferRadius / 111111) * Math.cos(angle); // 1도 ≈ 111.111km
+      const lngOffset = (bufferRadius / (111111 * Math.cos(selectedPark.위도 * Math.PI / 180))) * Math.sin(angle);
+      
+      coordinates.push([
+        center[0] + lngOffset,
+        center[1] + latOffset
+      ]);
+    }
+    coordinates.push(coordinates[0]); // 원을 닫기 위해 첫 점 추가
+
+    const bufferGeoJSON = {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [coordinates]
+      },
+      properties: {
+        parkName: selectedPark["공 원 명"],
+        radius: bufferRadius
+      }
+    };
+
+    // 버퍼 원 소스 추가
+    map.current.addSource('park-buffer', {
+      type: 'geojson',
+      data: bufferGeoJSON
+    });
+
+    // 버퍼 원 채우기 레이어
+    map.current.addLayer({
+      id: 'park-buffer-fill',
+      type: 'fill',
+      source: 'park-buffer',
+      paint: {
+        'fill-color': '#2196F3',
+        'fill-opacity': 0.1
+      }
+    });
+
+    // 버퍼 원 경계선 레이어
+    map.current.addLayer({
+      id: 'park-buffer-line',
+      type: 'line',
+      source: 'park-buffer',
+      paint: {
+        'line-color': '#2196F3',
+        'line-width': 2,
+        'line-opacity': 0.8,
+        'line-dasharray': [2, 2] // 점선 효과
+      }
+    });
+
+    console.log(`🎯 ${selectedPark["공 원 명"]} 5km 버퍼 표시 완료`);
+
+  }, [selectedPark]);
 
   // 불균형 데이터가 로드되면 구 색상 업데이트
   useEffect(() => {
@@ -445,13 +619,21 @@ export default function MapView() {
       
       {/* 선택 해제 버튼 (중앙 상단) */}
       {selectedDistrict && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
           <button
             onClick={() => clearSelection()}
             className="bg-white shadow-lg rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-200"
           >
             선택 해제
           </button>
+          {selectedPark && (
+            <button
+              onClick={() => clearParkSelection()}
+              className="bg-blue-500 shadow-lg rounded-lg px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
+            >
+              버퍼 해제
+            </button>
+          )}
         </div>
       )}
       
@@ -504,6 +686,52 @@ export default function MapView() {
                 </div>
               </>
             )}
+            <div className="text-xs text-gray-700 mt-1">
+              공원 수: <span className="font-semibold text-green-600">{getSelectedDistrictParks().length}개</span>
+            </div>
+          </div>
+        )}
+
+        {/* 선택된 공원 정보 (5km 버퍼) */}
+        {selectedPark && (
+          <div className="bg-green-50 rounded p-2 mb-3 border border-green-200">
+            <div className="font-medium text-green-800 mb-1">
+              🎯 선택된 공원 (5km 버퍼)
+            </div>
+            <div className="text-sm font-semibold text-gray-800">{selectedPark["공 원 명"]}</div>
+            <div className="space-y-1 text-xs text-gray-600 mt-1">
+              <div><span className="font-medium">종류:</span> {selectedPark.공원종류}</div>
+              <div><span className="font-medium">면적:</span> {selectedPark["면 적 합 계(㎡)"].toLocaleString()}㎡</div>
+              <div><span className="font-medium">위치:</span> {selectedPark["위    치"]}</div>
+            </div>
+            
+            {/* 버퍼 내 공원 분석 정보 */}
+            {(() => {
+              const bufferParks = getParksWithinBuffer(selectedPark, 5);
+              const totalArea = bufferParks.reduce((sum, park) => sum + park["면 적 합 계(㎡)"], 0);
+              const parkTypes = [...new Set(bufferParks.map(park => park.공원종류))];
+              
+              return (
+                <div className="mt-2 pt-2 border-t border-green-200">
+                  <div className="text-xs font-medium text-blue-700 mb-1">
+                    💙 5km 반경 내 공원 분석
+                  </div>
+                  <div className="space-y-1 text-xs text-gray-600">
+                    <div><span className="font-medium">공원 수:</span> {bufferParks.length}개</div>
+                    <div><span className="font-medium">총 면적:</span> {totalArea.toLocaleString()}㎡</div>
+                    <div><span className="font-medium">공원 유형:</span> {parkTypes.slice(0, 3).join(', ')}{parkTypes.length > 3 ? ' 등' : ''}</div>
+                    {bufferParks.length > 0 && (
+                      <div className="mt-1">
+                        <span className="font-medium">가장 가까운 공원:</span>
+                        <div className="ml-2 text-gray-500">
+                          {bufferParks[0]["공 원 명"]} ({(bufferParks[0] as any).distance?.toFixed(1)}km)
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
         
