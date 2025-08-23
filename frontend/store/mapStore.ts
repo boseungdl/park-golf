@@ -112,7 +112,7 @@ interface MapState {
 
 // 서울시 중심 좌표
 const SEOUL_CENTER = {
-  lat: 37.5665,
+  lat: 37.5365,
   lng: 126.9780,
 };
 

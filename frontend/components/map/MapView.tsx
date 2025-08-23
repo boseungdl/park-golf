@@ -1,7 +1,7 @@
 /**
  * MapView.tsx - 서울 파크골프 입지 분석 지도 컴포넌트 (2017년 데이터 + 공원 마커)
  * 
- * 🚧 현재 구현 단계: 공원 마커 표시 완료
+ * 🚧 현재 구현 단계: 3D 불균형 지수 표시 + 배경 실지도 완료
  * 📅 다음 확장 예정: 분석 기능, 마커 클러스터링, 필터링
  * 📊 복잡도: ⭐⭐⭐ (고급)
  * 
@@ -21,6 +21,9 @@
  * - ✅ 마커 클릭 시 공원 정보 팝업
  * - ✅ 마커 호버 효과 및 애니메이션
  * - ✅ 좌표 유효성 검증된 공원만 표시
+ * - ✅ 불균형 지수 기반 3D 높이 표시
+ * - ✅ 배경 실지도 흐릿하게 표시
+ * - ✅ 공원 클릭 시 버퍼 크기 기반 자동 줌
  * 
  * 💡 사용 예시:
  * ```tsx
@@ -42,6 +45,18 @@ const getImbalanceColor = (value: number): string => {
   if (value < 0.4) return '#FFA726';       // 주황색 (다소 부족)
   if (value < 0.6) return '#FF7043';       // 진한 주황 (부족)
   return '#E53935';                        // 빨간색 (매우 부족)
+};
+
+// 불균형 지수에 따른 3D 높이 계산 함수
+const getImbalanceHeight = (value: number): number => {
+  // 불균형 지수를 3D 높이로 변환 (미터 단위)
+  // 값이 클수록 (부족할수록) 더 높이 표시
+  
+  if (value < -0.1) return 50;   // 과잉 - 낮게
+  if (value < 0.2) return 200;   // 적정 - 보통
+  if (value < 0.4) return 500;   // 주의 - 중간 높이
+  if (value < 0.6) return 800;   // 부족 - 높게  
+  return 1200;                   // 심각 - 가장 높게
 };
 
 // 불균형 지수 상태 텍스트 반환 함수
@@ -129,18 +144,42 @@ export default function MapView() {
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    // 지도 초기화
+    // 지도 초기화 (3D 뷰 + 배경 실지도)
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: {
         version: 8,
-        sources: {},
-        layers: [],
+        sources: {
+          // 배경 실지도 타일 소스 (OpenStreetMap)
+          'osm-tiles': {
+            type: 'raster',
+            tiles: [
+              'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+            ],
+            tileSize: 256,
+            attribution: '© OpenStreetMap contributors'
+          }
+        },
+        layers: [
+          // 배경 실지도 레이어 (흐릿하게 표시)
+          {
+            id: 'background-map',
+            type: 'raster',
+            source: 'osm-tiles',
+            paint: {
+              'raster-opacity': 0.3, // 30% 투명도로 흐릿하게
+              'raster-brightness-max': 0.8, // 밝기 조절
+              'raster-contrast': -0.2 // 대비 낮춤
+            }
+          }
+        ],
         glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf"
       },
       center: [center.lng, center.lat], // mapStore 중심 좌표 사용
       zoom: zoom, // mapStore 줌 레벨 사용
-      minZoom: 9,  // 최소 줌 레벨 (너무 축소되지 않도록)
+      pitch: 45, // 3D 뷰를 위한 카메라 각도 (0-60도)
+      bearing: 0, // 북쪽 기준 회전 각도
+      minZoom:10.8,  // 최소 줌 레벨 (너무 축소되지 않도록)
       maxZoom: 18, // 최대 줌 레벨 (너무 확대되지 않도록)
       attributionControl: false
     });
@@ -182,15 +221,17 @@ export default function MapView() {
       });
     }
 
-    // 구 폴리곤 레이어 (불균형 지수 색상 적용) - 이미 존재하는지 확인
+    // 구 3D 폴리곤 레이어 (불균형 지수 높이 + 색상 적용) - 이미 존재하는지 확인
     if (!map.current.getLayer('districts-fill')) {
       map.current.addLayer({
         id: 'districts-fill',
-        type: 'fill',
+        type: 'fill-extrusion', // 3D extrusion 타입으로 변경
         source: 'districts-2017',
         paint: {
-          'fill-color': '#E3F2FD', // 기본 색상 (불균형 데이터 로드 전)
-          'fill-opacity': 0.7
+          'fill-extrusion-color': '#E3F2FD', // 기본 색상 (불균형 데이터 로드 전)
+          'fill-extrusion-height': 100, // 기본 높이
+          'fill-extrusion-opacity': 0.8, // 약간 더 진하게 표시
+          'fill-extrusion-vertical-gradient': true // 수직 그라데이션 효과
         }
       });
     }
@@ -202,7 +243,7 @@ export default function MapView() {
         type: 'line',
         source: 'districts-2017',
         paint: {
-          'line-color': '#1976D2', // 조금 더 진한 파란색
+          'line-color': '#dbdbdbff', // 조금 더 진한 파란색
           'line-width': 0.8,       // 매우 얇게
           'line-opacity': 0.7      // 투명도 추가
         }
@@ -619,39 +660,47 @@ export default function MapView() {
 
   }, [selectedPark]);
 
-  // 불균형 데이터가 로드되면 구 색상 업데이트
+  // 불균형 데이터가 로드되면 구 3D 높이 + 색상 업데이트
   useEffect(() => {
-    if (!map.current || !imbalanceData || !showImbalance || !layersAdded.current) return;
+    if (!map.current || !imbalanceData || !layersAdded.current) return;
     
     // 불균형 지수에 따른 색상 표현식 생성
     const colorExpression: any = ['case'];
+    // 불균형 지수에 따른 3D 높이 표현식 생성
+    const heightExpression: any = ['case'];
     
     Object.entries(imbalanceData).forEach(([district, value]) => {
+      // 색상 설정
       colorExpression.push(['==', ['get', 'SIG_KOR_NM'], district]);
       colorExpression.push(getImbalanceColor(value));
+      
+      // 3D 높이 설정
+      heightExpression.push(['==', ['get', 'SIG_KOR_NM'], district]);
+      heightExpression.push(getImbalanceHeight(value));
     });
     
-    // 기본 색상 (매칭되지 않는 경우)
+    // 기본값 (매칭되지 않는 경우)
     colorExpression.push('#E3F2FD');
+    heightExpression.push(100); // 기본 높이
     
-    // 구 폴리곤 색상 업데이트
+    // 구 3D 폴리곤 색상 + 높이 업데이트
     if (map.current.getLayer('districts-fill')) {
-      map.current.setPaintProperty('districts-fill', 'fill-color', colorExpression);
+      if (showImbalance) {
+        // 불균형 모드: 색상 + 높이 모두 적용
+        map.current.setPaintProperty('districts-fill', 'fill-extrusion-color', colorExpression);
+        map.current.setPaintProperty('districts-fill', 'fill-extrusion-height', heightExpression);
+      } else {
+        // 일반 모드: 기본 색상 + 낮은 높이
+        map.current.setPaintProperty('districts-fill', 'fill-extrusion-color', '#E3F2FD');
+        map.current.setPaintProperty('districts-fill', 'fill-extrusion-height', 100);
+      }
     }
     
-    console.log('🎨 불균형 지수 색상 적용 완료');
+    console.log('🎨 불균형 지수 3D 표시 적용 완료 (색상 + 높이)');
   }, [imbalanceData, showImbalance, layersAdded.current]);
 
-  // 불균형 시각화 모드가 꺼지면 기본 색상으로 복원
-  useEffect(() => {
-    if (!map.current) return;
-    
-    if (!showImbalance && map.current.getLayer('districts-fill')) {
-      // 불균형 표시가 OFF일 때 기본 색상으로 변경
-      map.current.setPaintProperty('districts-fill', 'fill-color', '#E3F2FD');
-      console.log('🎨 불균형 색상 제거 완료 - 기본 색상으로 복원');
-    }
-  }, [showImbalance]);
+  // 불균형 시각화 모드 토글 처리는 위의 useEffect에서 통합 처리됨
+  // (showImbalance 값에 따라 자동으로 색상과 높이가 조정됨)
 
   return (
     <div className="relative w-full h-full">
