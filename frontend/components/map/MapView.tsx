@@ -813,9 +813,9 @@ export default function MapView() {
         {/* 선택된 공원 정보 (5km 버퍼) */}
         {selectedPark && (
           <div className="bg-green-50 rounded p-2 mb-3 border border-green-200">
-            <div className="font-medium text-green-800 mb-1">
-              🎯 선택된 공원
-            </div>
+            {/* <div className="font-medium text-green-800 mb-1">
+              선택된 공원
+            </div> */}
             <div className="text-sm font-semibold text-gray-800">{getParkName(selectedPark)}</div>
             <div className="space-y-1 text-xs text-gray-600 mt-1">
               <div><span className="font-medium">종류:</span> {selectedPark.공원종류}</div>
@@ -826,9 +826,9 @@ export default function MapView() {
             {/* MCLP 분석 정보 */}
             {selectedPark.mclpData && selectedPark.mclpData.총수요지수 !== null && !isNaN(selectedPark.mclpData.총수요지수) ? (
               <div className="mt-2 pt-2 border-t border-green-200">
-                <div className="text-xs font-medium text-blue-700 mb-1">
+                {/* <div className="text-xs font-medium text-blue-700 mb-1">
                   📊 MCLP 분석 정보
-                </div>
+                </div> */}
                 <div className="space-y-1 text-xs text-gray-600">
                   <div><span className="font-medium">포함 행정동:</span> {selectedPark.mclpData.포함행정동수}개</div>
                   <div><span className="font-medium">총 수요지수:</span> {selectedPark.mclpData.총수요지수.toFixed(3)}</div>
