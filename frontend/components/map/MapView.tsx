@@ -65,6 +65,36 @@ const getDarkerColor = (color: string): string => {
   return colorMap[color] || color;
 };
 
+// 버퍼 크기에 따른 최적 줌 레벨 계산 함수
+const calculateOptimalZoomForBuffer = (radiusKm: number): number => {
+  // 5km 버퍼를 화면에 적절히 표시하기 위한 줌 레벨 계산
+  // 서울 지역 기준으로 경험적 공식 사용
+  
+  // 버퍼 지름을 고려한 줌 레벨 (padding 포함)
+  const diameterKm = radiusKm * 2;
+  const paddingFactor = 1.4; // 40% 여백 추가
+  const effectiveDiameter = diameterKm * paddingFactor;
+  
+  // 경험적 공식: 지름이 클수록 줌 레벨은 낮아짐
+  // 5km 버퍼 → 10km 지름 → 14km 효과 지름 → 줄 레벨 11-12 정도
+  let zoom: number;
+  
+  if (effectiveDiameter >= 20) {
+    zoom = 10; // 매우 큰 버퍼
+  } else if (effectiveDiameter >= 15) {
+    zoom = 11; // 큰 버퍼 (5km 기본값)
+  } else if (effectiveDiameter >= 10) {
+    zoom = 12; // 중간 버퍼
+  } else if (effectiveDiameter >= 5) {
+    zoom = 13; // 작은 버퍼
+  } else {
+    zoom = 14; // 매우 작은 버퍼
+  }
+  
+  console.log(`📐 버퍼 계산: ${radiusKm}km 반지름 → ${effectiveDiameter.toFixed(1)}km 효과 지름 → 줌 레벨 ${zoom}`);
+  return zoom;
+};
+
 export default function MapView() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -481,6 +511,20 @@ export default function MapView() {
         
         // 팝업 닫기 (버퍼 표시를 위해)
         marker.getPopup()?.remove();
+        
+        // 5km 버퍼에 맞는 줌 레벨로 자동 조정
+        const bufferRadiusKm = 5; // 5km 버퍼
+        const optimalZoom = calculateOptimalZoomForBuffer(bufferRadiusKm);
+        
+        // 공원 위치로 부드럽게 이동하면서 줌 조정
+        map.current?.flyTo({
+          center: [park.경도, park.위도],
+          zoom: optimalZoom,
+          duration: 1200, // 1.2초 애니메이션
+          essential: true // 애니메이션 중단 방지
+        });
+        
+        console.log(`🎯 ${park["공 원 명"]} 위치로 이동 (줌 레벨: ${optimalZoom})`);
       });
 
       // 지도에 마커 추가
