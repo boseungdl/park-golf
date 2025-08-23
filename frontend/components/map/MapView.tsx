@@ -121,6 +121,7 @@ export default function MapView() {
   const map = useRef<maplibregl.Map | null>(null);
   const layersAdded = useRef<boolean>(false);
   const parkMarkers = useRef<maplibregl.Marker[]>([]);  // 공원 마커들 관리
+  const mclpMarkers = useRef<maplibregl.Marker[]>([]);  // MCLP 선정 공원 마커들
   
   // mapStore 연동
   const { 
@@ -144,7 +145,8 @@ export default function MapView() {
     selectPark,
     clearParkSelection,
     getSelectedDistrictParks,
-    getParksWithinBuffer
+    getParksWithinBuffer,
+    mclpAnalysis // MCLP 분석 상태 추가
   } = useMapStore();
 
   useEffect(() => {
@@ -705,6 +707,155 @@ export default function MapView() {
     console.log('🎨 불균형 지수 3D 표시 적용 완료 (색상 + 높이)');
   }, [imbalanceData, showImbalance, layersAdded.current]);
 
+  // MCLP 선정 공원 마커 및 버퍼 표시
+  useEffect(() => {
+    if (!map.current) return;
+
+    // 기존 MCLP 마커들 제거
+    mclpMarkers.current.forEach(marker => marker.remove());
+    mclpMarkers.current = [];
+
+    // MCLP 버퍼 레이어들 제거
+    try {
+      if (map.current.getSource('mclp-buffers')) {
+        map.current.removeLayer('mclp-buffers-fill');
+        map.current.removeLayer('mclp-buffers-line');
+        map.current.removeSource('mclp-buffers');
+      }
+    } catch (e) {
+      // 레이어가 없으면 무시
+    }
+
+    // MCLP 분석 중이거나 완료된 경우에만 표시
+    if (mclpAnalysis.selectedParks.length > 0) {
+      console.log('🎯 MCLP 선정 공원 표시:', mclpAnalysis.selectedParks.length, '개');
+
+      // 각 선정된 공원에 대해 특별한 마커와 버퍼 표시
+      const bufferFeatures: any[] = [];
+
+      mclpAnalysis.selectedParks.forEach((park, index) => {
+        // 특별한 MCLP 마커 생성
+        const mclpMarkerElement = document.createElement('div');
+        mclpMarkerElement.className = 'mclp-marker';
+        mclpMarkerElement.innerHTML = `
+          <div class="relative">
+            <!-- 외곽 링 -->
+            <div class="absolute inset-0 w-8 h-8 bg-red-500 rounded-full animate-ping"></div>
+            <!-- 메인 마커 -->
+            <div class="relative w-8 h-8 bg-red-600 border-2 border-white rounded-full shadow-lg flex items-center justify-center">
+              <span class="text-white text-sm font-bold">${index + 1}</span>
+            </div>
+            <!-- 하단 꼬리 -->
+            <div class="absolute top-6 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-red-600"></div>
+          </div>
+        `;
+
+        const mclpMarker = new maplibregl.Marker({
+          element: mclpMarkerElement,
+          anchor: 'bottom'
+        })
+          .setLngLat([park.경도, park.위도])
+          .addTo(map.current!);
+
+        // 마커 클릭 이벤트
+        mclpMarkerElement.addEventListener('click', (e) => {
+          e.stopPropagation();
+          console.log('🎯 MCLP 마커 클릭:', getParkName(park));
+          
+          // 팝업 표시
+          new maplibregl.Popup({ closeOnClick: true })
+            .setLngLat([park.경도, park.위도])
+            .setHTML(`
+              <div class="p-2">
+                <div class="font-semibold text-red-700 mb-1">
+                  🏆 ${index + 1}순위 후보지
+                </div>
+                <div class="font-medium">${getParkName(park)}</div>
+                <div class="text-sm text-gray-600 mt-1">
+                  ${park["위    치"]} • ${park.구}구
+                </div>
+                <div class="text-xs text-blue-600 mt-2">
+                  5km 커버리지 반경
+                </div>
+              </div>
+            `)
+            .addTo(map.current!);
+        });
+
+        mclpMarkers.current.push(mclpMarker);
+
+        // 5km 버퍼 생성 (원형)
+        const bufferRadius = 5000; // 5km in meters
+        const centerLng = park.경도;
+        const centerLat = park.위도;
+        
+        // 원형 버퍼를 다각형으로 근사
+        const sides = 64;
+        const coordinates = [];
+        for (let i = 0; i <= sides; i++) {
+          const angle = (i * 360) / sides;
+          const dx = bufferRadius * Math.cos(angle * Math.PI / 180);
+          const dy = bufferRadius * Math.sin(angle * Math.PI / 180);
+          
+          // 미터를 도로 변환 (대략적인 변환)
+          const deltaLat = dy / 111320;
+          const deltaLng = dx / (111320 * Math.cos(centerLat * Math.PI / 180));
+          
+          coordinates.push([centerLng + deltaLng, centerLat + deltaLat]);
+        }
+
+        bufferFeatures.push({
+          type: 'Feature',
+          properties: {
+            order: index + 1,
+            parkName: getParkName(park)
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [coordinates]
+          }
+        });
+      });
+
+      // 버퍼 레이어 추가
+      if (bufferFeatures.length > 0) {
+        map.current.addSource('mclp-buffers', {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: bufferFeatures
+          }
+        });
+
+        // 버퍼 채우기 레이어
+        map.current.addLayer({
+          id: 'mclp-buffers-fill',
+          type: 'fill',
+          source: 'mclp-buffers',
+          paint: {
+            'fill-color': '#dc2626', // red-600
+            'fill-opacity': 0.1
+          }
+        });
+
+        // 버퍼 테두리 레이어
+        map.current.addLayer({
+          id: 'mclp-buffers-line',
+          type: 'line',
+          source: 'mclp-buffers',
+          paint: {
+            'line-color': '#dc2626', // red-600
+            'line-width': 2,
+            'line-dasharray': [3, 3]
+          }
+        });
+
+        console.log('🔵 MCLP 버퍼 레이어 추가 완료:', bufferFeatures.length, '개');
+      }
+    }
+
+  }, [mclpAnalysis.selectedParks]);
+
   // 불균형 시각화 모드 토글 처리는 위의 useEffect에서 통합 처리됨
   // (showImbalance 값에 따라 자동으로 색상과 높이가 조정됨)
 
@@ -826,9 +977,9 @@ export default function MapView() {
             {/* MCLP 분석 정보 */}
             {selectedPark.mclpData && selectedPark.mclpData.총수요지수 !== null && !isNaN(selectedPark.mclpData.총수요지수) ? (
               <div className="mt-2 pt-2 border-t border-green-200">
-                {/* <div className="text-xs font-medium text-blue-700 mb-1">
-                  📊 MCLP 분석 정보
-                </div> */}
+                <div className="text-xs font-medium text-blue-700 mb-1">
+                  분석 정보
+                </div>
                 <div className="space-y-1 text-xs text-gray-600">
                   <div><span className="font-medium">포함 행정동:</span> {selectedPark.mclpData.포함행정동수}개</div>
                   <div><span className="font-medium">총 수요지수:</span> {selectedPark.mclpData.총수요지수.toFixed(3)}</div>

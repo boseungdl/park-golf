@@ -43,6 +43,33 @@ export interface MclpData {
   매칭유사도: number;       // 디버깅용 매칭 유사도
 }
 
+// MCLP 분석 결과 타입 정의
+export interface MclpOptimalPark {
+  order: number;
+  originalName: string;
+  name: string;
+  score: number;
+  coveredDongs: number;
+}
+
+// allParksData의 개별 공원 정보 타입
+export interface AllParkData {
+  originalName: string;
+  score: number;
+  coveredDongs: number;
+  coveredDongsList: {
+    dong: string;
+    demandIndex: number;
+    ratio: number;
+    contribution: number;
+  }[];
+}
+
+export interface MclpResults {
+  optimalParks: MclpOptimalPark[];
+  allParksData: Record<string, AllParkData>;
+}
+
 // 공원 데이터 타입 정의 (MCLP 통합)
 export interface ParkData {
   구: string;                    // 구명 (예: "종로", "강남")
@@ -61,6 +88,15 @@ export interface ParkData {
 export interface ValidParkData extends Omit<ParkData, '위도' | '경도'> {
   위도: number;
   경도: number;
+}
+
+// MCLP 분석 상태 타입 정의
+export interface MclpAnalysisState {
+  isRunning: boolean;
+  currentStep: number;
+  totalSteps: number;
+  selectedParks: ValidParkData[];
+  currentMessage: string;
 }
 
 interface MapState {
@@ -85,6 +121,10 @@ interface MapState {
   // 시각화 모드
   showImbalance: boolean;                  // 불균형 지수 시각화 여부
   
+  // MCLP 분석 상태
+  mclpResults: MclpResults | null;         // MCLP 분석 결과 데이터
+  mclpAnalysis: MclpAnalysisState;         // MCLP 분석 진행 상태
+  
   // 기본 액션 함수들
   setCenter: (lat: number, lng: number) => void;
   setZoom: (zoom: number) => void;
@@ -108,6 +148,12 @@ interface MapState {
   // 공원 데이터 관련 액션
   getSelectedDistrictParks: () => ValidParkData[];  // 선택된 구의 공원들 반환
   getParksWithinBuffer: (centerLat: number, centerLng: number, radiusKm: number) => ValidParkData[];  // 버퍼 내 공원들 반환
+  
+  // MCLP 분석 관련 액션
+  loadMclpResults: () => Promise<void>;             // MCLP 결과 데이터 로딩
+  startMclpAnalysis: () => void;                    // MCLP 분석 시작
+  stopMclpAnalysis: () => void;                     // MCLP 분석 중단
+  zoomToShowAllSelectedParks: () => void;           // 선택된 모든 공원이 보이도록 줌 조절
 }
 
 // 서울시 중심 좌표
@@ -135,6 +181,289 @@ function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * c; // km 단위 거리
 }
 
+// 불균형 지수 기반 MCLP 알고리즘 - 불균형 지수 상위 3개 구에서 최적 공원 선정
+function calculateDistrictBasedMCLP(
+  allParksData: Record<string, AllParkData>, 
+  validParks: ValidParkData[],
+  imbalanceData: Record<string, number> | null
+): ValidParkData[] {
+  console.log('🚀 불균형 지수 기반 MCLP 알고리즘 시작');
+  
+  if (!imbalanceData) {
+    console.error('❌ 불균형 지수 데이터가 없습니다');
+    return [];
+  }
+  
+  // 1. 불균형 지수가 가장 높은 구 3개 선정
+  const sortedDistricts = Object.entries(imbalanceData)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3);
+    
+  console.log('📊 불균형 지수 상위 3개 구:');
+  sortedDistricts.forEach(([district, index], i) => {
+    console.log(`  ${i + 1}. ${district}: ${index.toFixed(6)}`);
+  });
+  
+  const topDistricts = sortedDistricts.map(([district]) => district.replace(/구$/, '')); // "성북구" → "성북"
+  console.log('🎯 대상 구:', topDistricts);
+  
+  // 2. 해당 3개 구의 공원들만 필터링
+  console.log('\n🔍 candidateParks 필터링 상세 분석:');
+  console.log('topDistricts:', topDistricts);
+  
+  const candidateParks = validParks.filter(park => {
+    const parkDistrict = park.구;
+    const isIncluded = topDistricts.includes(parkDistrict);
+    
+    // 봉제산과 일자산 공원 특별 추적
+    if (park["공 원 명"].includes('봉제산') || park["공 원 명"].includes('일자산')) {
+      console.log(`   🔎 특별추적 - ${park["공 원 명"]}:`);
+      console.log(`      park.구: "${parkDistrict}"`);
+      console.log(`      topDistricts 포함: ${isIncluded}`);
+      console.log(`      mclpData: ${park.mclpData ? 'O' : 'X'}`);
+    }
+    
+    return isIncluded;
+  });
+  
+  console.log(`\n🏞️ 대상 구 공원 수: ${candidateParks.length}개`);
+  topDistricts.forEach(district => {
+    const count = candidateParks.filter(p => p.구 === district).length;
+    console.log(`  ${district}구: ${count}개 공원`);
+    
+    // 각 구의 공원들 상세 출력
+    const districtParks = candidateParks.filter(p => p.구 === district);
+    districtParks.slice(0, 3).forEach(park => {
+      const parkName = park.mclpData?.originalName || park["공 원 명"];
+      const hasScore = park.mclpData ? park.mclpData.총수요지수.toFixed(3) : 'N/A';
+      console.log(`     - ${parkName} (${hasScore}점)`);
+    });
+  });
+  
+  // 봉제산 공원 디버깅
+  const bongjePark = validParks.find(p => 
+    p["공 원 명"].includes('봉제산') || 
+    (p.mclpData?.originalName && p.mclpData.originalName.includes('봉제산'))
+  );
+  console.log('🔍 봉제산 공원 상태:', bongjePark ? {
+    name: bongjePark["공 원 명"],
+    district: bongjePark.구,
+    lat: bongjePark.위도,
+    lng: bongjePark.경도,
+    mclpName: bongjePark.mclpData?.originalName
+  } : '찾을 수 없음');
+  
+  // 모든 유효한 구 목록 출력
+  const allDistricts = [...new Set(validParks.map(p => p.구))].sort();
+  console.log('📍 전체 유효한 구 목록:', allDistricts);
+  
+  if (candidateParks.length === 0) {
+    console.error('❌ 대상 구에 공원이 없습니다');
+    return [];
+  }
+  
+  // 3. 제한된 후보군에서 MCLP 그리디 알고리즘 적용
+  console.log('\n🔍 제한된 후보군에서 MCLP 알고리즘 시작');
+  
+  const coveredDongs = new Set<string>();
+  const selectedParks: ValidParkData[] = [];
+  
+  // 3번의 iteration으로 3개 공원 선정
+  for (let iteration = 0; iteration < 3; iteration++) {
+    console.log(`\n🔄 ${iteration + 1}번째 iteration 시작`);
+    console.log(`   현재 커버된 동 수: ${coveredDongs.size}개`);
+    
+    // 4. 후보 공원들 중에서 현재 유효한 score 계산
+    console.log(`\n🔎 현재 커버된 행정동들 (${coveredDongs.size}개):`);
+    if (coveredDongs.size > 0) {
+      const coveredList = Array.from(coveredDongs).slice(0, 10);
+      console.log(`   ${coveredList.join(', ')}${coveredDongs.size > 10 ? ` 외 ${coveredDongs.size - 10}개` : ''}`);
+    }
+    
+    const currentScores = candidateParks.map(park => {
+      const parkName = park.mclpData?.originalName || park["공 원 명"];
+      
+      // parkData 찾기 - 더 안정적인 방법 사용
+      let parkData = allParksData[parkName];
+      if (!parkData) {
+        // 백업: Object.values()로 찾기
+        parkData = Object.values(allParksData).find(data => data.originalName === parkName);
+      }
+      
+      if (!parkData) {
+        console.log(`⚠️ MCLP 데이터 없음: ${parkName}`);
+        return {
+          park,
+          parkData: null,
+          currentScore: 0,
+          remainingDongs: 0
+        };
+      }
+      
+      // 현재 iteration에서 이미 커버된 동들을 제외한 나머지 contribution 계산
+      const totalDongs = parkData.coveredDongsList.length;
+      const coveredInThisPark = parkData.coveredDongsList.filter(dongInfo => coveredDongs.has(dongInfo.dong));
+      const remainingInThisPark = parkData.coveredDongsList.filter(dongInfo => !coveredDongs.has(dongInfo.dong));
+      
+      const remainingContribution = remainingInThisPark.reduce((sum, dongInfo) => sum + dongInfo.contribution, 0);
+      
+      // 디버깅: 원래 점수와 현재 점수 비교
+      const originalScore = parkData.score || 0;
+      const scoreDropRatio = originalScore > 0 ? (originalScore - remainingContribution) / originalScore : 0;
+      
+      // 상세 디버깅 로그
+      console.log(`   🏞️ ${parkName} (${park.구}구):`);
+      console.log(`      전체 행정동: ${totalDongs}개, 이미 커버됨: ${coveredInThisPark.length}개, 남은 것: ${remainingInThisPark.length}개`);
+      console.log(`      원래 점수: ${originalScore.toFixed(3)} → 현재 점수: ${remainingContribution.toFixed(3)} (${(scoreDropRatio * 100).toFixed(1)}% 하락)`);
+      
+      if (coveredInThisPark.length > 0) {
+        console.log(`      이미 커버된 동들:`, coveredInThisPark.slice(0, 5).map(d => d.dong).join(', ') + 
+          (coveredInThisPark.length > 5 ? ` 외 ${coveredInThisPark.length - 5}개` : ''));
+      }
+      
+      return {
+        park,
+        parkData,
+        currentScore: remainingContribution,
+        originalScore,
+        scoreDropRatio,
+        remainingDongs: remainingInThisPark.length,
+        coveredDongs: coveredInThisPark.length,
+        totalDongs
+      };
+    }).filter(item => item.parkData !== null); // MCLP 데이터가 있는 공원만
+    
+    // 5. 현재 score 기준으로 내림차순 정렬
+    currentScores.sort((a, b) => b.currentScore - a.currentScore);
+    
+    console.log(`\n📊 상위 10개 후보 공원 현재 점수 (iteration ${iteration + 1}):`);
+    currentScores.slice(0, 10).forEach(({park, currentScore, originalScore, scoreDropRatio, remainingDongs, coveredDongs, totalDongs}, index) => {
+      const parkName = park.mclpData?.originalName || park["공 원 명"];
+      console.log(`  ${index + 1}. ${parkName} (${park.구}구):`);
+      console.log(`      점수: ${originalScore.toFixed(3)} → ${currentScore.toFixed(3)} (${(scoreDropRatio * 100).toFixed(1)}% 하락)`);
+      console.log(`      행정동: ${totalDongs}개 중 ${coveredDongs}개 이미 커버됨, ${remainingDongs}개 남음`);
+    });
+    
+    // 구별 후보 현황
+    console.log(`📍 구별 후보 현황 (iteration ${iteration + 1}):`);
+    topDistricts.forEach(district => {
+      const districtCandidates = currentScores.filter(({park}) => park.구 === district);
+      if (districtCandidates.length > 0) {
+        const topScore = districtCandidates[0].currentScore;
+        console.log(`  ${district}구: ${districtCandidates.length}개 후보, 최고점수: ${topScore.toFixed(3)}`);
+      } else {
+        console.log(`  ${district}구: 후보 없음`);
+      }
+    });
+    
+    // 6. 현재 가장 높은 score를 가진 공원 선택
+    let selectedInThisIteration = false;
+    
+    for (const {park, parkData, currentScore} of currentScores) {
+      if (currentScore <= 0) {
+        console.log('⚠️ 더 이상 기여할 수 있는 공원이 없습니다');
+        break;
+      }
+      
+      // 이미 선택된 공원인지 확인
+      const alreadySelected = selectedParks.some(selected => {
+        const selectedName = selected.mclpData?.originalName || selected["공 원 명"];
+        const currentName = park.mclpData?.originalName || park["공 원 명"];
+        return selectedName === currentName;
+      });
+      
+      if (alreadySelected) {
+        const parkName = park.mclpData?.originalName || park["공 원 명"];
+        console.log(`⏭️ 이미 선택된 공원으로 스킵: ${parkName}`);
+        continue;
+      }
+      
+      // 7. 조건을 만족하므로 선택
+      selectedParks.push(park);
+      selectedInThisIteration = true;
+      
+      // 8. 선정된 공원의 모든 동을 커버됨 처리
+      const beforeCoveredSize = coveredDongs.size;
+      const newlyCoveredDongs = parkData!.coveredDongsList.filter(
+        dongInfo => !coveredDongs.has(dongInfo.dong)
+      );
+      
+      console.log(`\n🔄 행정동 커버 처리 (${iteration + 1}번째 선정):`);
+      console.log(`   선정 전 커버된 동: ${beforeCoveredSize}개`);
+      console.log(`   선정 공원의 전체 동: ${parkData!.coveredDongsList.length}개`);
+      console.log(`   새로 커버할 동: ${newlyCoveredDongs.length}개`);
+      
+      // 실제 coveredDongs에 추가
+      parkData!.coveredDongsList.forEach(dongInfo => {
+        const wasAlreadyCovered = coveredDongs.has(dongInfo.dong);
+        coveredDongs.add(dongInfo.dong);
+        if (!wasAlreadyCovered) {
+          console.log(`     ➕ 새로 추가: ${dongInfo.dong} (기여도: ${dongInfo.contribution.toFixed(4)})`);
+        }
+      });
+      
+      const afterCoveredSize = coveredDongs.size;
+      const actuallyAdded = afterCoveredSize - beforeCoveredSize;
+      
+      const parkName = park.mclpData?.originalName || park["공 원 명"];
+      console.log(`\n✅ ${iteration + 1}번째 선정 완료: ${parkName} (${park.구}구)`);
+      console.log(`   현재 점수: ${currentScore.toFixed(3)}`);
+      console.log(`   행정동 변화: ${beforeCoveredSize}개 → ${afterCoveredSize}개 (실제 추가: ${actuallyAdded}개)`);
+      console.log(`   검증: 새로 커버 예상 ${newlyCoveredDongs.length}개 vs 실제 추가 ${actuallyAdded}개`);
+      
+      // 커버되는 행정동 목록 (처음 10개만)
+      console.log(`   커버되는 행정동들:`, newlyCoveredDongs.slice(0, 10).map(d => d.dong).join(', ') + 
+        (newlyCoveredDongs.length > 10 ? ` 외 ${newlyCoveredDongs.length - 10}개` : ''));
+      
+      // 전체 행정동 목록 (상세 분석용)
+      console.log(`   📋 전체 커버 행정동 목록 (${parkData!.coveredDongsList.length}개):`);
+      parkData!.coveredDongsList.forEach((dongInfo, idx) => {
+        const isNewlyCovered = newlyCoveredDongs.some(d => d.dong === dongInfo.dong);
+        const status = isNewlyCovered ? '🆕' : '⏭️';
+        console.log(`     ${idx + 1}. ${status} ${dongInfo.dong} (기여도: ${dongInfo.contribution.toFixed(4)})`);
+      });
+      
+      // 선정된 공원들 간의 행정동 겹침 분석
+      if (selectedParks.length > 1) {
+        console.log(`\n🔄 공원간 행정동 겹침 분석:`);
+        selectedParks.forEach((prevPark, prevIdx) => {
+          if (prevIdx === selectedParks.length - 1) return; // 현재 선정된 공원 제외
+          
+          const prevParkName = prevPark.mclpData?.originalName || prevPark["공 원 명"];
+          const prevParkData = Object.values(allParksData).find(data => data.originalName === prevParkName);
+          
+          if (prevParkData) {
+            const overlappingDongs = parkData!.coveredDongsList.filter(dongInfo => 
+              prevParkData.coveredDongsList.some(prevDong => prevDong.dong === dongInfo.dong)
+            );
+            
+            console.log(`   ${prevParkName} vs ${parkName}: ${overlappingDongs.length}개 동 겹침`);
+            if (overlappingDongs.length > 0) {
+              console.log(`     겹치는 동들:`, overlappingDongs.slice(0, 5).map(d => d.dong).join(', ') + 
+                (overlappingDongs.length > 5 ? ` 외 ${overlappingDongs.length - 5}개` : ''));
+            }
+          }
+        });
+      }
+      break;
+    }
+    
+    if (!selectedInThisIteration) {
+      console.log(`⚠️ ${iteration + 1}번째 iteration에서 선택 가능한 공원이 없습니다`);
+      break;
+    }
+  }
+  
+  console.log(`🎯 불균형 지수 기반 MCLP 완료: ${selectedParks.length}개 공원 선정`);
+  console.log(`📍 선정된 공원들:`);
+  selectedParks.forEach((park, index) => {
+    const parkName = park.mclpData?.originalName || park["공 원 명"];
+    console.log(`  ${index + 1}. ${parkName} (${park.구}구)`);
+  });
+  
+  return selectedParks;
+}
+
 export const useMapStore = create<MapState>()((set, get) => ({
   // 초기 상태
   center: SEOUL_CENTER,
@@ -156,6 +485,16 @@ export const useMapStore = create<MapState>()((set, get) => ({
   
   // 시각화 모드 초기 상태
   showImbalance: true,  // 기본적으로 불균형 지수 표시
+  
+  // MCLP 분석 초기 상태
+  mclpResults: null,
+  mclpAnalysis: {
+    isRunning: false,
+    currentStep: 0,
+    totalSteps: 3,
+    selectedParks: [],
+    currentMessage: ''
+  },
   
   // 기본 액션 함수들
   setCenter: (lat, lng) => {
@@ -400,6 +739,223 @@ export const useMapStore = create<MapState>()((set, get) => ({
       const distance = calculateDistance(centerLat, centerLng, park.위도, park.경도);
       return distance <= radiusKm;
     });
+  },
+
+  // MCLP 결과 데이터 로딩
+  loadMclpResults: async () => {
+    try {
+      const response = await fetch('/data/mclp-results.json');
+      if (!response.ok) throw new Error('Failed to load MCLP results');
+      const mclpResults: MclpResults = await response.json();
+      
+      set({ mclpResults });
+      console.log('📊 MCLP 분석 결과 로드 완료:');
+      console.log('  - optimalParks:', mclpResults.optimalParks.length, '개 후보');
+      console.log('  - allParksData:', Object.keys(mclpResults.allParksData).length, '개 공원 데이터');
+      
+      // allParksData 상위 5개 공원 정보 출력
+      const topParks = Object.entries(mclpResults.allParksData)
+        .sort(([, a], [, b]) => b.score - a.score)
+        .slice(0, 5);
+      console.log('  - 상위 5개 공원:', topParks.map(([key, data]) => 
+        `${data.originalName} (${data.score.toFixed(2)}점)`
+      ));
+      
+    } catch (error) {
+      console.error('MCLP 결과 로딩 실패:', error);
+    }
+  },
+
+  // MCLP 분석 시작 (불균형 지수 기반 알고리즘 사용)
+  startMclpAnalysis: () => {
+    const { mclpResults, validParks, imbalanceData } = get();
+    
+    if (!mclpResults || !mclpResults.allParksData) {
+      console.error('MCLP 결과 데이터가 없습니다');
+      return;
+    }
+
+    if (!imbalanceData) {
+      console.error('불균형 지수 데이터가 없습니다');
+      return;
+    }
+
+    // 분석 시작 상태 설정
+    set({
+      mclpAnalysis: {
+        isRunning: true,
+        currentStep: 0,
+        totalSteps: 3,
+        selectedParks: [],
+        currentMessage: '불균형 지수가 높은 구 3곳에서 MCLP 분석을 시작합니다...'
+      }
+    });
+
+    // 불균형 지수 기반 MCLP 알고리즘으로 최적 공원 선정
+    const optimalParks = calculateDistrictBasedMCLP(mclpResults.allParksData, validParks, imbalanceData);
+    
+    if (optimalParks.length === 0) {
+      console.error('❌ 선정된 공원이 없습니다');
+      set({
+        mclpAnalysis: {
+          isRunning: false,
+          currentStep: 0,
+          totalSteps: 3,
+          selectedParks: [],
+          currentMessage: '분석 실패: 불균형 지수 상위 구에서 조건을 만족하는 공원을 찾을 수 없습니다.'
+        }
+      });
+      return;
+    }
+
+    console.log(`🎯 총 ${optimalParks.length}개 공원 선정됨, 순차 표시 시작`);
+
+    // 순차적으로 공원 표시 및 포커스 이동
+    let currentStep = 0;
+    const selectedParks: ValidParkData[] = [];
+    
+    const processNextStep = () => {
+      if (currentStep >= optimalParks.length) {
+        // 분석 완료 - 부드럽게 마무리
+        set({
+          mclpAnalysis: {
+            isRunning: false,
+            currentStep: optimalParks.length,
+            totalSteps: 3,
+            selectedParks,
+            currentMessage: `분석 완료! 불균형 지수 상위 구에서 최적 입지 ${selectedParks.length}곳이 선정되었습니다.`
+          }
+        });
+        
+        // 3초 후 부드럽게 전체 공원들이 보이도록 조정
+        setTimeout(() => {
+          get().zoomToShowAllSelectedParks();
+        }, 3000);
+        
+        return;
+      }
+
+      const selectedPark = optimalParks[currentStep];
+      selectedParks.push(selectedPark);
+      
+      // 🎯 선정된 공원으로 포커스 이동 (새로 추가)
+      const parkLat = Number(selectedPark.위도);
+      const parkLng = Number(selectedPark.경도);
+      
+      if (!isNaN(parkLat) && !isNaN(parkLng)) {
+        // 개별 공원으로 줌인 (좀 더 가까이)
+        set({
+          center: { lat: parkLat, lng: parkLng },
+          zoom: 14
+        });
+        
+        console.log(`📍 포커스 이동: ${getParkName(selectedPark)} (${parkLat.toFixed(4)}, ${parkLng.toFixed(4)})`);
+      }
+      
+      // MCLP 데이터에서 점수 정보 가져오기
+      const parkName = selectedPark.mclpData?.originalName || selectedPark["공 원 명"];
+      const parkScore = Object.values(mclpResults.allParksData).find(
+        data => data.originalName === parkName
+      )?.score || 0;
+      
+      set({
+        mclpAnalysis: {
+          isRunning: true,
+          currentStep: currentStep + 1,
+          totalSteps: 3,
+          selectedParks: [...selectedParks],
+          currentMessage: `${currentStep + 1}번째 후보: ${getParkName(selectedPark)} (${selectedPark.구}구, 점수: ${parkScore.toFixed(2)})`
+        }
+      });
+      
+      console.log(`✅ ${currentStep + 1}번째 후보 표시 완료: ${getParkName(selectedPark)} (${selectedPark.구}구)`);
+
+      currentStep++;
+      
+      // 다음 단계를 3초 후 실행 (포커스 이동을 볼 시간 확보)
+      setTimeout(processNextStep, 3000);
+    };
+
+    // 첫 번째 단계 시작 (1초 후)
+    setTimeout(processNextStep, 1000);
+  },
+
+  // MCLP 분석 중단
+  stopMclpAnalysis: () => {
+    set({
+      mclpAnalysis: {
+        isRunning: false,
+        currentStep: 0,
+        totalSteps: 3,
+        selectedParks: [],
+        currentMessage: ''
+      }
+    });
+    console.log('🛑 MCLP 분석 중단');
+  },
+
+  // 선택된 모든 공원이 보이도록 줌 조절
+  zoomToShowAllSelectedParks: () => {
+    const { mclpAnalysis } = get();
+    
+    if (mclpAnalysis.selectedParks.length === 0) return;
+
+    // 모든 선택된 공원의 좌표 추출
+    const coords = mclpAnalysis.selectedParks
+      .map(park => {
+        const lat = Number(park.위도);
+        const lng = Number(park.경도);
+        return !isNaN(lat) && !isNaN(lng) ? [lng, lat] : null;
+      })
+      .filter(coord => coord !== null) as number[][];
+    
+    if (coords.length === 0) return;
+
+    // 단일 공원인 경우 줌 레벨 12로 설정
+    if (coords.length === 1) {
+      set({
+        center: { lat: coords[0][1], lng: coords[0][0] },
+        zoom: 12
+      });
+      console.log(`🔍 단일 공원 포커스: (${coords[0][1].toFixed(4)}, ${coords[0][0].toFixed(4)}), 줌12`);
+      return;
+    }
+
+    // 좌표들의 경계 계산
+    const lngs = coords.map(c => c[0]);
+    const lats = coords.map(c => c[1]);
+    
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+
+    // 중심점 계산
+    const centerLat = (minLat + maxLat) / 2;
+    const centerLng = (minLng + maxLng) / 2;
+
+    // 경계 크기에 따른 적절한 줌 레벨 계산
+    const latSpan = maxLat - minLat;
+    const lngSpan = maxLng - minLng;
+    const maxSpan = Math.max(latSpan, lngSpan);
+    
+    // 여유 공간을 위해 더 보수적으로 1.3배만 확장 (덜 급작스럽게)
+    const paddedSpan = maxSpan * 1.3;
+    
+    // 줌 레벨 계산 (좀 더 보수적으로)
+    let zoom = 12;
+    if (paddedSpan > 0.4) zoom = 9;
+    else if (paddedSpan > 0.25) zoom = 10;
+    else if (paddedSpan > 0.12) zoom = 11;
+    else if (paddedSpan > 0.06) zoom = 12;
+    else zoom = 13;
+
+    set({
+      center: { lat: centerLat, lng: centerLng },
+      zoom
+    });
+
+    console.log(`🔍 전체 공원 뷰: 중심(${centerLat.toFixed(4)}, ${centerLng.toFixed(4)}), 줌${zoom}, ${mclpAnalysis.selectedParks.length}개 공원`);
   },
 
 }));
