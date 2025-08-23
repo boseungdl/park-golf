@@ -116,6 +116,12 @@ const SEOUL_CENTER = {
   lng: 126.9780,
 };
 
+// 공원명을 안전하게 가져오는 헬퍼 함수
+const getParkName = (park: ValidParkData): string => {
+  // MCLP 데이터의 originalName이 있으면 사용, 없으면 원본 공원명 사용
+  return park.mclpData?.originalName || park["공 원 명"];
+};
+
 // 두 지점 간의 거리 계산 (Haversine formula) - km 단위
 function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371; // 지구 반지름 (km)
@@ -205,7 +211,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   selectDistrict: (districtName: string) => {
     const { districtDongMapping, selectedPark } = get();
     
-    console.log(`🏛️ selectDistrict 호출됨: ${districtName}, 현재 selectedPark:`, selectedPark?.["공 원 명"] || 'null');
+    console.log(`🏛️ selectDistrict 호출됨: ${districtName}, 현재 selectedPark:`, selectedPark ? getParkName(selectedPark) : 'null');
     
     if (!districtDongMapping || !districtDongMapping[districtName]) {
       console.warn(`구를 찾을 수 없음: ${districtName}`);
@@ -236,7 +242,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   // 공원 선택 액션
   selectPark: (park: ValidParkData) => {
     set({ selectedPark: park });
-    console.log('🏞️ 공원 선택:', park["공 원 명"]);
+    console.log('🏞️ 공원 선택:', getParkName(park));
   },
 
   // 공원 선택 해제 액션
@@ -373,7 +379,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
         });
         
         if (!isWithinDistrict) {
-          console.warn(`⚠️ 공원 "${park["공 원 명"]}"이 ${selectedDistrict} 경계를 벗어남 (${park.위도}, ${park.경도}) - ${park["위    치"]}`);
+          console.warn(`⚠️ 공원 "${getParkName(park)}"이 ${selectedDistrict} 경계를 벗어남 (${park.위도}, ${park.경도}) - ${park["위    치"]}`);
         }
         
         return isWithinDistrict;

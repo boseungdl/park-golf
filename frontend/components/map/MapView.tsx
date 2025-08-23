@@ -80,6 +80,12 @@ const getDarkerColor = (color: string): string => {
   return colorMap[color] || color;
 };
 
+// 공원명을 안전하게 가져오는 헬퍼 함수
+const getParkName = (park: ValidParkData): string => {
+  // MCLP 데이터의 originalName이 있으면 사용, 없으면 원본 공원명 사용
+  return park.mclpData?.originalName || park["공 원 명"];
+};
+
 // 버퍼 크기에 따른 최적 줌 레벨 계산 함수
 const calculateOptimalZoomForBuffer = (radiusKm: number): number => {
   // 5km 버퍼를 화면에 적절히 표시하기 위한 줌 레벨 계산
@@ -368,7 +374,7 @@ export default function MapView() {
           
           // 3. 기존 공원 선택 해제 (버퍼 제거) - 최신 상태를 직접 가져오기
           const currentSelectedPark = useMapStore.getState().selectedPark;
-          console.log('🔍 최신 selectedPark 상태 확인:', currentSelectedPark?.["공 원 명"] || 'null');
+          console.log('🔍 최신 selectedPark 상태 확인:', currentSelectedPark ? getParkName(currentSelectedPark) : 'null');
           if (currentSelectedPark) {
             console.log('🏞️ 공원 선택 해제 호출 중...');
             clearParkSelection();
@@ -519,7 +525,7 @@ export default function MapView() {
         closeOnClick: false
       }).setHTML(`
         <div class="text-sm max-w-xs">
-          <div class="font-semibold text-gray-800 mb-2">${park["공 원 명"]}</div>
+          <div class="font-semibold text-gray-800 mb-2">${getParkName(park)}</div>
           <div class="space-y-1 text-xs text-gray-600">
             <div><span class="font-medium">위치:</span> ${park["위    치"]}</div>
             <div><span class="font-medium">구:</span> ${park.구}</div>
@@ -544,7 +550,7 @@ export default function MapView() {
 
       // 마커 클릭 이벤트 (공원 선택 및 5km 버퍼 표시)
       marker.getElement().addEventListener('click', (e) => {
-        console.log('🖱️ 마커 클릭됨:', park["공 원 명"]);
+        console.log('🖱️ 마커 클릭됨:', getParkName(park));
         e.stopPropagation(); // 이벤트 버블링 방지
         e.preventDefault(); // 기본 동작 방지
         
@@ -565,7 +571,7 @@ export default function MapView() {
           essential: true // 애니메이션 중단 방지
         });
         
-        console.log(`🎯 ${park["공 원 명"]} 위치로 이동 (줌 레벨: ${optimalZoom})`);
+        console.log(`🎯 ${getParkName(park)} 위치로 이동 (줌 레벨: ${optimalZoom})`);
       });
 
       // 지도에 마커 추가
@@ -621,7 +627,7 @@ export default function MapView() {
         coordinates: [coordinates]
       },
       properties: {
-        parkName: selectedPark["공 원 명"],
+        parkName: getParkName(selectedPark),
         radius: bufferRadius
       }
     };
@@ -656,7 +662,7 @@ export default function MapView() {
       }
     });
 
-    console.log(`🎯 ${selectedPark["공 원 명"]} 5km 버퍼 표시 완료`);
+    console.log(`🎯 ${getParkName(selectedPark)} 5km 버퍼 표시 완료`);
 
   }, [selectedPark]);
 
@@ -810,7 +816,7 @@ export default function MapView() {
             <div className="font-medium text-green-800 mb-1">
               🎯 선택된 공원
             </div>
-            <div className="text-sm font-semibold text-gray-800">{selectedPark["공 원 명"]}</div>
+            <div className="text-sm font-semibold text-gray-800">{getParkName(selectedPark)}</div>
             <div className="space-y-1 text-xs text-gray-600 mt-1">
               <div><span className="font-medium">종류:</span> {selectedPark.공원종류}</div>
               <div><span className="font-medium">면적:</span> {selectedPark["면 적 합 계(㎡)"].toLocaleString()}㎡</div>
