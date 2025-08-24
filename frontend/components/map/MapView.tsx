@@ -23,7 +23,7 @@
  * - ✅ 좌표 유효성 검증된 공원만 표시
  * - ✅ 불균형 지수 기반 3D 높이 표시
  * - ✅ 배경 실지도 흐릿하게 표시
- * - ✅ 공원 클릭 시 버퍼 크기 기반 자동 줌
+ * - ✅ 공원 클릭 시 3km 버퍼 크기 기반 자동 줌
  * 
  * 💡 사용 예시:
  * ```tsx
@@ -146,7 +146,8 @@ export default function MapView() {
     clearParkSelection,
     getSelectedDistrictParks,
     getParksWithinBuffer,
-    mclpAnalysis // MCLP 분석 상태 추가
+    mclpAnalysis, // MCLP 분석 상태 추가
+    stopMclpAnalysis // MCLP 분석 중단 함수 추가
   } = useMapStore();
 
   useEffect(() => {
@@ -374,7 +375,14 @@ export default function MapView() {
             setImbalanceView(false);
           }
           
-          // 3. 기존 공원 선택 해제 (버퍼 제거) - 최신 상태를 직접 가져오기
+          // 3. MCLP 분석이 실행 중이거나 완료된 경우 중단
+          const currentMclpAnalysis = useMapStore.getState().mclpAnalysis;
+          if (currentMclpAnalysis.isRunning || currentMclpAnalysis.selectedParks.length > 0) {
+            console.log('🛑 MCLP 분석 중단 - 구 클릭으로 인해');
+            stopMclpAnalysis();
+          }
+          
+          // 4. 기존 공원 선택 해제 (버퍼 제거) - 최신 상태를 직접 가져오기
           const currentSelectedPark = useMapStore.getState().selectedPark;
           console.log('🔍 최신 selectedPark 상태 확인:', currentSelectedPark ? getParkName(currentSelectedPark) : 'null');
           if (currentSelectedPark) {
@@ -561,8 +569,8 @@ export default function MapView() {
         // 팝업 닫기 (버퍼 표시를 위해)
         marker.getPopup()?.remove();
         
-        // 5km 버퍼에 맞는 줌 레벨로 자동 조정
-        const bufferRadiusKm = 5; // 5km 버퍼
+        // 3km 버퍼에 맞는 줌 레벨로 자동 조정
+        const bufferRadiusKm = 3; // 3km 버퍼
         const optimalZoom = calculateOptimalZoomForBuffer(bufferRadiusKm);
         
         // 공원 위치로 부드럽게 이동하면서 줌 조정
@@ -602,8 +610,8 @@ export default function MapView() {
 
     if (!selectedPark) return;
 
-    // 5km 버퍼 원 생성 (GeoJSON)
-    const bufferRadius = 5000; // 5km in meters
+    // 3km 버퍼 원 생성 (GeoJSON)
+    const bufferRadius = 3000; // 3km in meters
     const center = [selectedPark.경도, selectedPark.위도];
     const points = 64; // 원의 정밀도
     
@@ -664,7 +672,7 @@ export default function MapView() {
       }
     });
 
-    console.log(`🎯 ${getParkName(selectedPark)} 5km 버퍼 표시 완료`);
+    console.log(`🎯 ${getParkName(selectedPark)} 3km 버퍼 표시 완료`);
 
   }, [selectedPark]);
 
@@ -740,13 +748,13 @@ export default function MapView() {
         mclpMarkerElement.innerHTML = `
           <div class="relative">
             <!-- 외곽 링 -->
-            <div class="absolute inset-0 w-8 h-8 bg-red-500 rounded-full animate-ping"></div>
+            <div class="absolute inset-0 w-8 h-8 bg-blue-500 rounded-full animate-ping"></div>
             <!-- 메인 마커 -->
-            <div class="relative w-8 h-8 bg-red-600 border-2 border-white rounded-full shadow-lg flex items-center justify-center">
+            <div class="relative w-8 h-8 bg-blue-600 border-2 border-white rounded-full shadow-lg flex items-center justify-center">
               <span class="text-white text-sm font-bold">${index + 1}</span>
             </div>
             <!-- 하단 꼬리 -->
-            <div class="absolute top-6 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-red-600"></div>
+            <div class="absolute top-6 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-blue-600"></div>
           </div>
         `;
 
@@ -767,7 +775,7 @@ export default function MapView() {
             .setLngLat([park.경도, park.위도])
             .setHTML(`
               <div class="p-2">
-                <div class="font-semibold text-red-700 mb-1">
+                <div class="font-semibold text-blue-700 mb-1">
                   🏆 ${index + 1}순위 후보지
                 </div>
                 <div class="font-medium">${getParkName(park)}</div>
@@ -775,7 +783,7 @@ export default function MapView() {
                   ${park["위    치"]} • ${park.구}구
                 </div>
                 <div class="text-xs text-blue-600 mt-2">
-                  5km 커버리지 반경
+                  3km 커버리지 반경
                 </div>
               </div>
             `)
@@ -784,8 +792,8 @@ export default function MapView() {
 
         mclpMarkers.current.push(mclpMarker);
 
-        // 5km 버퍼 생성 (원형)
-        const bufferRadius = 5000; // 5km in meters
+        // 3km 버퍼 생성 (원형)
+        const bufferRadius = 3000; // 3km in meters
         const centerLng = park.경도;
         const centerLat = park.위도;
         
@@ -833,7 +841,7 @@ export default function MapView() {
           type: 'fill',
           source: 'mclp-buffers',
           paint: {
-            'fill-color': '#dc2626', // red-600
+            'fill-color': '#2563eb', // blue-600
             'fill-opacity': 0.1
           }
         });
@@ -844,13 +852,13 @@ export default function MapView() {
           type: 'line',
           source: 'mclp-buffers',
           paint: {
-            'line-color': '#dc2626', // red-600
+            'line-color': '#2563eb', // blue-600
             'line-width': 2,
             'line-dasharray': [3, 3]
           }
         });
 
-        console.log('🔵 MCLP 버퍼 레이어 추가 완료:', bufferFeatures.length, '개');
+        console.log('🔵 MCLP 3km 버퍼 레이어 추가 완료:', bufferFeatures.length, '개');
       }
     }
 

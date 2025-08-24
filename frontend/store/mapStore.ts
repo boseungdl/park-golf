@@ -181,6 +181,36 @@ function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * c; // km 단위 거리
 }
 
+// 버퍼 크기에 따른 최적 줌 레벨 계산 함수
+function calculateOptimalZoomForBuffer(radiusKm: number): number {
+  // 5km 버퍼를 화면에 적절히 표시하기 위한 줌 레벨 계산
+  // 서울 지역 기준으로 경험적 공식 사용
+  
+  // 버퍼 지름을 고려한 줌 레벨 (padding 포함)
+  const diameterKm = radiusKm * 2;
+  const paddingFactor = 1.4; // 40% 여백 추가
+  const effectiveDiameter = diameterKm * paddingFactor;
+  
+  // 경험적 공식: 지름이 클수록 줌 레벨은 낮아짐
+  // 5km 버퍼 → 10km 지름 → 14km 효과 지름 → 줄 레벨 11-12 정도
+  let zoom: number;
+  
+  if (effectiveDiameter >= 20) {
+    zoom = 10; // 매우 큰 버퍼
+  } else if (effectiveDiameter >= 15) {
+    zoom = 11; // 큰 버퍼 (5km 기본값)
+  } else if (effectiveDiameter >= 10) {
+    zoom = 12; // 중간 버퍼
+  } else if (effectiveDiameter >= 5) {
+    zoom = 13; // 작은 버퍼
+  } else {
+    zoom = 14; // 매우 작은 버퍼
+  }
+  
+  console.log(`📐 버퍼 계산: ${radiusKm}km 반지름 → ${effectiveDiameter.toFixed(1)}km 효과 지름 → 줌 레벨 ${zoom}`);
+  return zoom;
+}
+
 // 불균형 지수 기반 MCLP 알고리즘 - 불균형 지수 상위 3개 구에서 최적 공원 선정
 function calculateDistrictBasedMCLP(
   allParksData: Record<string, AllParkData>, 
@@ -780,8 +810,12 @@ export const useMapStore = create<MapState>()((set, get) => ({
       return;
     }
 
-    // 분석 시작 상태 설정
+    // 분석 시작 상태 설정 + 불균형 지수 표시 자동 ON + 선택된 구 해제
     set({
+      showImbalance: true, // 불균형 지수 표시 자동 ON
+      selectedDistrict: null, // 선택된 구 해제
+      selectedDongs: [], // 선택된 행정동 해제
+      selectedPark: null, // 선택된 공원도 해제
       mclpAnalysis: {
         isRunning: true,
         currentStep: 0,
@@ -838,18 +872,21 @@ export const useMapStore = create<MapState>()((set, get) => ({
       const selectedPark = optimalParks[currentStep];
       selectedParks.push(selectedPark);
       
-      // 🎯 선정된 공원으로 포커스 이동 (새로 추가)
+      // 🎯 선정된 공원으로 포커스 이동 (3km 버퍼에 맞는 줌 레벨 사용)
       const parkLat = Number(selectedPark.위도);
       const parkLng = Number(selectedPark.경도);
       
       if (!isNaN(parkLat) && !isNaN(parkLng)) {
-        // 개별 공원으로 줌인 (좀 더 가까이)
+        // 3km 버퍼에 맞는 적절한 줌 레벨 계산
+        const bufferRadiusKm = 3;
+        const optimalZoom = calculateOptimalZoomForBuffer(bufferRadiusKm);
+        
         set({
           center: { lat: parkLat, lng: parkLng },
-          zoom: 14
+          zoom: optimalZoom
         });
         
-        console.log(`📍 포커스 이동: ${getParkName(selectedPark)} (${parkLat.toFixed(4)}, ${parkLng.toFixed(4)})`);
+        console.log(`📍 포커스 이동: ${getParkName(selectedPark)} (${parkLat.toFixed(4)}, ${parkLng.toFixed(4)}), 줌 레벨: ${optimalZoom}`);
       }
       
       // MCLP 데이터에서 점수 정보 가져오기

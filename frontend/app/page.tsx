@@ -165,7 +165,7 @@ export default function Home() {
                               </div>
                             </div>
                             <div className="text-xs text-gray-500">
-                              5km 반경
+                              3km 반경
                             </div>
                           </div>
                         </div>
