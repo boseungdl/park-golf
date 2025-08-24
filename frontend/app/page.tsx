@@ -75,9 +75,9 @@ export default function Home() {
       }`}>
         <div className="h-full bg-white bg-opacity-95 backdrop-blur-sm rounded-lg shadow-2xl overflow-hidden">
           {sidePanel === 'mclp' && (
-            <div className="h-full flex flex-col p-6">
-              {/* 헤더 */}
-              <div className="flex items-center mb-6">
+            <div className="h-full flex flex-col">
+              {/* 헤더 - 고정 */}
+              <div className="flex items-center p-6 pb-4 border-b border-gray-200">
                 <div className="text-4xl mr-3">🎯</div>
                 <div>
                   <h2 className="text-2xl font-bold text-gray-800">MCLP 분석</h2>
@@ -85,8 +85,8 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* 분석 진행 상황 */}
-              <div className="flex-1 flex flex-col">
+              {/* 분석 진행 상황 - 스크롤 가능 */}
+              <div className="flex-1 overflow-y-auto px-6 py-4">
                 {mclpAnalysis.isRunning ? (
                   // 분석 진행 중
                   <div className="space-y-4">
@@ -165,12 +165,85 @@ export default function Home() {
                               </div>
                             </div>
                             <div className="text-xs text-gray-500">
-                              3km 반경
+                              5km 반경
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
+
+                    {/* MCLP 분석 통계 정보 */}
+                    {mclpAnalysis.statistics && (
+                      <div className="space-y-4 mt-6">
+                        <h3 className="font-semibold text-gray-700 pb-2 border-b">분석 결과 통계</h3>
+                        
+                        {/* 기본 통계 카드들 */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white border border-gray-200 rounded-lg p-3 text-center">
+                            <div className="text-xs text-gray-500 mb-1">총 후보 공원</div>
+                            <div className="text-lg font-bold text-gray-800">
+                              {mclpAnalysis.statistics.totalCandidateParks}개
+                            </div>
+                          </div>
+                          <div className="bg-white border border-gray-200 rounded-lg p-3 text-center">
+                            <div className="text-xs text-gray-500 mb-1">선정 공원</div>
+                            <div className="text-lg font-bold text-blue-600">
+                              {mclpAnalysis.statistics.selectedParksCount}개
+                            </div>
+                          </div>
+                          <div className="bg-white border border-gray-200 rounded-lg p-3 text-center">
+                            <div className="text-xs text-gray-500 mb-1">수요 커버리지</div>
+                            <div className="text-lg font-bold text-green-600">
+                              {mclpAnalysis.statistics.totalDemandCoverage.toFixed(1)}%
+                            </div>
+                          </div>
+                          <div className="bg-white border border-gray-200 rounded-lg p-3 text-center">
+                            <div className="text-xs text-gray-500 mb-1">총 점수</div>
+                            <div className="text-lg font-bold text-purple-600">
+                              {mclpAnalysis.statistics.totalParkScore.toFixed(1)}점
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 상세 점수 정보 */}
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <h4 className="font-medium text-gray-700 mb-3">공원별 상세 정보</h4>
+                          <div className="space-y-2">
+                            {mclpAnalysis.statistics.parkDetails.map((park, index) => (
+                              <div key={index} className="flex justify-between items-center py-2">
+                                <div className="flex-1">
+                                  <div className="font-medium text-sm text-gray-800">
+                                    {park.name}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {park.district}구 • 전체 {park.rank}위
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-bold text-sm text-blue-600">
+                                    {park.score.toFixed(1)}점
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 추가 분석 정보 */}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <div className="flex items-center mb-2">
+                            <div className="text-lg mr-2">📈</div>
+                            <h4 className="font-medium text-blue-800">분석 요약</h4>
+                          </div>
+                          <div className="text-sm text-blue-700 space-y-1">
+                            <div>• 불균형 지수 상위 3개 구에서 선정</div>
+                            <div>• 5km 서비스 반경 기준 최적화</div>
+                            <div>• 최고점수: {mclpAnalysis.statistics.maxParkScore.toFixed(1)}점</div>
+                            <div>• 최저점수: {mclpAnalysis.statistics.minParkScore.toFixed(1)}점</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   // 분석 대기 상태

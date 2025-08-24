@@ -90,6 +90,24 @@ export interface ValidParkData extends Omit<ParkData, '위도' | '경도'> {
   경도: number;
 }
 
+// MCLP 분석 통계 정보 타입 정의
+export interface MclpStatistics {
+  totalCandidateParks: number;    // 총 후보 공원 수
+  selectedParksCount: number;     // 선정된 공원 수
+  totalDemandCoverage: number;    // 총 수요 중 커버된 비율 (%)
+  totalParkScore: number;         // 선정 공원 총점
+  maxParkScore: number;           // 선정 공원 최고 점수
+  minParkScore: number;           // 선정 공원 최저 점수
+  totalPossibleDemand: number;    // 전체 가능한 수요 총합
+  coveredDemand: number;          // 실제 커버된 수요
+  parkDetails: Array<{
+    name: string;
+    district: string;
+    score: number;
+    rank: number;                 // 전체 후보 중 순위
+  }>;
+}
+
 // MCLP 분석 상태 타입 정의
 export interface MclpAnalysisState {
   isRunning: boolean;
@@ -97,6 +115,7 @@ export interface MclpAnalysisState {
   totalSteps: number;
   selectedParks: ValidParkData[];
   currentMessage: string;
+  statistics?: MclpStatistics;    // 분석 완료 시 통계 정보
 }
 
 interface MapState {
@@ -124,6 +143,7 @@ interface MapState {
   // MCLP 분석 상태
   mclpResults: MclpResults | null;         // MCLP 분석 결과 데이터
   mclpAnalysis: MclpAnalysisState;         // MCLP 분석 진행 상태
+  demandIndexMap: { [key: string]: number }; // Excel 기준 수요지수 매핑
   
   // 기본 액션 함수들
   setCenter: (lat: number, lng: number) => void;
@@ -494,6 +514,153 @@ function calculateDistrictBasedMCLP(
   return selectedParks;
 }
 
+// MCLP 분석 통계 계산 함수 (Excel 데이터 미리 로드된 상태에서 동기 실행)
+function calculateMclpStatistics(
+  selectedParks: ValidParkData[],
+  allParksData: Record<string, AllParkData>,
+  validParks: ValidParkData[],
+  demandIndexMap: { [key: string]: number }  // Excel 데이터를 파라미터로 받음
+): MclpStatistics {
+  console.log('📊 MCLP 통계 계산 시작 (Excel 수요지수 기준)');
+
+  if (selectedParks.length === 0) {
+    return {
+      totalCandidateParks: 0,
+      selectedParksCount: 0,
+      totalDemandCoverage: 0,
+      totalParkScore: 0,
+      maxParkScore: 0,
+      minParkScore: 0,
+      totalPossibleDemand: 0,
+      coveredDemand: 0,
+      parkDetails: []
+    };
+  }
+
+  // 전체 후보 공원 수 (MCLP 데이터가 있는 공원들만)
+  const candidateParks = validParks.filter(park => park.mclpData);
+  const totalCandidateParks = candidateParks.length;
+
+  // 선정된 공원들의 점수 정보 수집
+  const parkScores: number[] = [];
+  const parkDetails: MclpStatistics['parkDetails'] = [];
+
+  selectedParks.forEach((park, index) => {
+    const parkName = park.mclpData?.originalName || park["공 원 명"];
+    
+    // allParksData에서 점수 정보 찾기
+    let parkData = allParksData[parkName];
+    if (!parkData) {
+      // 백업: originalName으로 찾기
+      parkData = Object.values(allParksData).find(data => data.originalName === parkName);
+    }
+
+    const score = parkData?.score || 0;
+    parkScores.push(score);
+
+    // 전체 후보 중 순위 계산
+    const allScores = Object.values(allParksData)
+      .map(data => data.score)
+      .sort((a, b) => b - a); // 내림차순
+    const rank = allScores.indexOf(score) + 1;
+
+    parkDetails.push({
+      name: parkName,
+      district: park.구,
+      score: score,
+      rank: rank
+    });
+
+    console.log(`   ${index + 1}. ${parkName} (${park.구}구): ${score.toFixed(2)}점 (전체 ${rank}위)`);
+  });
+
+  // 전체 가능한 수요 계산 (Excel 수요지수 직접 사용)
+  let totalPossibleDemand = 0;
+  if (Object.keys(demandIndexMap).length > 0) {
+    totalPossibleDemand = Object.values(demandIndexMap).reduce((sum, demand) => sum + demand, 0);
+    console.log(`📊 Excel 기준 전체 수요 계산: ${Object.keys(demandIndexMap).length}개 행정동, 합계: ${totalPossibleDemand.toFixed(3)}`);
+  } else {
+    // fallback: 기존 방식 사용
+    console.warn('⚠️ Excel 데이터가 없어 기존 contribution 방식으로 계산');
+    const allDongs = new Set<string>();
+    Object.values(allParksData).forEach(parkData => {
+      parkData.coveredDongsList.forEach(dongInfo => {
+        if (!allDongs.has(dongInfo.dong)) {
+          allDongs.add(dongInfo.dong);
+          totalPossibleDemand += dongInfo.contribution;
+        }
+      });
+    });
+    console.log(`📊 Fallback 전체 수요 계산: ${allDongs.size}개 행정동, 합계: ${totalPossibleDemand.toFixed(3)}`);
+  }
+  
+  // 선정된 공원들이 커버하는 중복 제거된 실제 수요 계산
+  const coveredDongs = new Set<string>();
+  let coveredDemand = 0;
+  
+  selectedParks.forEach(park => {
+    const parkName = park.mclpData?.originalName || park["공 원 명"];
+    let parkData = allParksData[parkName];
+    if (!parkData) {
+      parkData = Object.values(allParksData).find(data => data.originalName === parkName);
+    }
+    
+    if (parkData) {
+      // Excel 수요지수 데이터가 있으면 우선 사용, 없으면 기존 contribution 사용
+      parkData.coveredDongsList.forEach(dongInfo => {
+        if (!coveredDongs.has(dongInfo.dong)) {
+          coveredDongs.add(dongInfo.dong);
+          
+          // Excel 기준 수요지수가 있으면 사용, 없으면 기존 contribution 사용
+          const excelDemand = demandIndexMap[dongInfo.dong];
+          if (excelDemand !== undefined) {
+            coveredDemand += excelDemand;
+          } else {
+            coveredDemand += dongInfo.contribution;
+            if (Object.keys(demandIndexMap).length > 0) {
+              console.warn(`⚠️ Excel 기준 데이터 없음, contribution 사용: ${dongInfo.dong} (${dongInfo.contribution.toFixed(4)})`);
+            }
+          }
+        }
+      });
+    }
+  });
+  
+  console.log(`📊 선정 공원 커버 계산 완료: 커버된 ${coveredDongs.size}개 행정동, 커버 수요: ${coveredDemand.toFixed(3)}`);
+  
+  // 커버리지 비율 계산 (%)
+  const coveragePercentage = totalPossibleDemand > 0 ? (coveredDemand / totalPossibleDemand) * 100 : 0;
+  
+  // 통계 계산
+  const totalScore = parkScores.reduce((sum, score) => sum + score, 0);
+  const maxScore = Math.max(...parkScores);
+  const minScore = Math.min(...parkScores);
+
+  const statistics: MclpStatistics = {
+    totalCandidateParks,
+    selectedParksCount: selectedParks.length,
+    totalDemandCoverage: coveragePercentage,
+    totalParkScore: totalScore,
+    maxParkScore: maxScore,
+    minParkScore: minScore,
+    totalPossibleDemand,
+    coveredDemand,
+    parkDetails: parkDetails.sort((a, b) => b.score - a.score) // 점수 내림차순 정렬
+  };
+
+  console.log('📊 통계 계산 완료:');
+  console.log(`   총 후보 공원: ${totalCandidateParks}개`);
+  console.log(`   선정된 공원: ${selectedParks.length}개`);
+  console.log(`   전체 가능 수요: ${totalPossibleDemand.toFixed(2)}`);
+  console.log(`   커버된 수요: ${coveredDemand.toFixed(2)}`);
+  console.log(`   수요 커버리지: ${coveragePercentage.toFixed(1)}%`);
+  console.log(`   총 점수: ${totalScore.toFixed(2)}점`);
+  console.log(`   최고 점수: ${maxScore.toFixed(2)}점`);
+  console.log(`   최저 점수: ${minScore.toFixed(2)}점`);
+
+  return statistics;
+}
+
 export const useMapStore = create<MapState>()((set, get) => ({
   // 초기 상태
   center: SEOUL_CENTER,
@@ -525,6 +692,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
     selectedParks: [],
     currentMessage: ''
   },
+  demandIndexMap: {},
   
   // 기본 액션 함수들
   setCenter: (lat, lng) => {
@@ -771,17 +939,33 @@ export const useMapStore = create<MapState>()((set, get) => ({
     });
   },
 
-  // MCLP 결과 데이터 로딩
+  // MCLP 결과 데이터 및 Excel 수요지수 데이터 로딩
   loadMclpResults: async () => {
     try {
-      const response = await fetch('/data/mclp-results.json');
-      if (!response.ok) throw new Error('Failed to load MCLP results');
-      const mclpResults: MclpResults = await response.json();
+      // MCLP 결과 데이터 로딩
+      const mclpResponse = await fetch('/data/mclp-results.json');
+      if (!mclpResponse.ok) throw new Error('Failed to load MCLP results');
+      const mclpResults: MclpResults = await mclpResponse.json();
       
-      set({ mclpResults });
+      // Excel 기준 수요지수 데이터 로딩
+      let demandIndexMap: { [key: string]: number } = {};
+      try {
+        const demandResponse = await fetch('/data/demand-index-map.json');
+        if (demandResponse.ok) {
+          demandIndexMap = await demandResponse.json();
+          console.log('📊 Excel 수요지수 데이터 로딩 완료:', Object.keys(demandIndexMap).length, '개 행정동');
+        } else {
+          console.warn('⚠️ Excel 수요지수 데이터 로딩 실패, 기존 contribution 방식 사용');
+        }
+      } catch (error) {
+        console.warn('⚠️ Excel 수요지수 데이터 로딩 오류:', error, '- 기존 contribution 방식 사용');
+      }
+      
+      set({ mclpResults, demandIndexMap });
       console.log('📊 MCLP 분석 결과 로드 완료:');
       console.log('  - optimalParks:', mclpResults.optimalParks.length, '개 후보');
       console.log('  - allParksData:', Object.keys(mclpResults.allParksData).length, '개 공원 데이터');
+      console.log('  - demandIndexMap:', Object.keys(demandIndexMap).length, '개 행정동 수요지수');
       
       // allParksData 상위 5개 공원 정보 출력
       const topParks = Object.entries(mclpResults.allParksData)
@@ -848,16 +1032,20 @@ export const useMapStore = create<MapState>()((set, get) => ({
     let currentStep = 0;
     const selectedParks: ValidParkData[] = [];
     
-    const processNextStep = () => {
+    const processNextStep = async () => {
       if (currentStep >= optimalParks.length) {
-        // 분석 완료 - 부드럽게 마무리
+        // 분석 완료 - 통계 계산 및 마무리
+        console.log('🎯 MCLP 분석 완료, 통계 계산 시작');
+        const statistics = calculateMclpStatistics(selectedParks, mclpResults.allParksData, validParks, get().demandIndexMap);
+        
         set({
           mclpAnalysis: {
             isRunning: false,
             currentStep: optimalParks.length,
             totalSteps: 3,
             selectedParks,
-            currentMessage: `분석 완료! 불균형 지수 상위 구에서 최적 입지 ${selectedParks.length}곳이 선정되었습니다.`
+            currentMessage: `분석 완료! 불균형 지수 상위 구에서 최적 입지 ${selectedParks.length}곳이 선정되었습니다.`,
+            statistics: statistics
           }
         });
         
@@ -872,13 +1060,13 @@ export const useMapStore = create<MapState>()((set, get) => ({
       const selectedPark = optimalParks[currentStep];
       selectedParks.push(selectedPark);
       
-      // 🎯 선정된 공원으로 포커스 이동 (3km 버퍼에 맞는 줌 레벨 사용)
+      // 🎯 선정된 공원으로 포커스 이동 (5km 버퍼에 맞는 줌 레벨 사용)
       const parkLat = Number(selectedPark.위도);
       const parkLng = Number(selectedPark.경도);
       
       if (!isNaN(parkLat) && !isNaN(parkLng)) {
-        // 3km 버퍼에 맞는 적절한 줌 레벨 계산
-        const bufferRadiusKm = 3;
+        // 5km 버퍼에 맞는 적절한 줌 레벨 계산
+        const bufferRadiusKm = 5;
         const optimalZoom = calculateOptimalZoomForBuffer(bufferRadiusKm);
         
         set({

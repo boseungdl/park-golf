@@ -569,8 +569,8 @@ export default function MapView() {
         // 팝업 닫기 (버퍼 표시를 위해)
         marker.getPopup()?.remove();
         
-        // 3km 버퍼에 맞는 줌 레벨로 자동 조정
-        const bufferRadiusKm = 3; // 3km 버퍼
+        // 5km 버퍼에 맞는 줌 레벨로 자동 조정
+        const bufferRadiusKm = 5; // 5km 버퍼
         const optimalZoom = calculateOptimalZoomForBuffer(bufferRadiusKm);
         
         // 공원 위치로 부드럽게 이동하면서 줌 조정
@@ -610,8 +610,8 @@ export default function MapView() {
 
     if (!selectedPark) return;
 
-    // 3km 버퍼 원 생성 (GeoJSON)
-    const bufferRadius = 3000; // 3km in meters
+    // 5km 버퍼 원 생성 (GeoJSON)
+    const bufferRadius = 5000; // 5km in meters
     const center = [selectedPark.경도, selectedPark.위도];
     const points = 64; // 원의 정밀도
     
@@ -672,7 +672,7 @@ export default function MapView() {
       }
     });
 
-    console.log(`🎯 ${getParkName(selectedPark)} 3km 버퍼 표시 완료`);
+    console.log(`🎯 ${getParkName(selectedPark)} 5km 버퍼 표시 완료`);
 
   }, [selectedPark]);
 
@@ -783,7 +783,7 @@ export default function MapView() {
                   ${park["위    치"]} • ${park.구}구
                 </div>
                 <div class="text-xs text-blue-600 mt-2">
-                  3km 커버리지 반경
+                  5km 커버리지 반경
                 </div>
               </div>
             `)
@@ -792,8 +792,8 @@ export default function MapView() {
 
         mclpMarkers.current.push(mclpMarker);
 
-        // 3km 버퍼 생성 (원형)
-        const bufferRadius = 3000; // 3km in meters
+        // 5km 버퍼 생성 (원형)
+        const bufferRadius = 5000; // 5km in meters
         const centerLng = park.경도;
         const centerLat = park.위도;
         
@@ -858,7 +858,7 @@ export default function MapView() {
           }
         });
 
-        console.log('🔵 MCLP 3km 버퍼 레이어 추가 완료:', bufferFeatures.length, '개');
+        console.log('🔵 MCLP 5km 버퍼 레이어 추가 완료:', bufferFeatures.length, '개');
       }
     }
 
