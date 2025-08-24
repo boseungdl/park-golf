@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import MapView from '../components/map/MapView';
+import DashboardPanel from '../components/dashboard/DashboardPanel';
 import { useMapStore } from '../store/mapStore';
 
 export default function Home() {
@@ -261,11 +262,7 @@ export default function Home() {
             </div>
           )}
           {sidePanel === 'dashboard' && (
-            <div className="text-center p-6">
-              <div className="text-6xl mb-4">📈</div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">대시보드</h2>
-              <p className="text-gray-600">대시보드 컴포넌트가 들어갈 자리</p>
-            </div>
+            <DashboardPanel />
           )}
         </div>
       </div>
