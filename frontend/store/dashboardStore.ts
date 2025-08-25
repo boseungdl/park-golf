@@ -94,6 +94,15 @@ interface DistrictStats {
   imbalanceIndex?: number; // 기존 불균형 지수 연동
 }
 
+// 수요 분석용 추가 데이터 타입
+interface AdditionalDistrictData {
+  district: string;
+  clubMembers: number;
+  subwayStations: number;
+  seniorCenters: number;
+  facilities: number;
+}
+
 interface DashboardState {
   // 레이어 상태
   currentLayer: LayerType;
@@ -107,6 +116,7 @@ interface DashboardState {
   clubData: ClubData[];
   imbalanceData: ImbalanceData[];
   parkgolfCourses: ParkgolfCourse[];
+  additionalData: AdditionalDistrictData[];
 
   // 집계 데이터
   seoulStats: {
@@ -137,6 +147,7 @@ interface DashboardState {
   loadClubData: () => Promise<void>;
   loadImbalanceData: () => Promise<void>;
   loadParkgolfCourses: () => Promise<void>;
+  loadAdditionalData: () => Promise<void>;
   loadAllData: () => Promise<void>;
   
   calculateSeoulStats: () => void;
@@ -157,6 +168,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   clubData: [],
   imbalanceData: [],
   parkgolfCourses: [],
+  additionalData: [],
 
   seoulStats: null,
   districtStats: [],
@@ -425,8 +437,26 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   // 모든 데이터 로딩
+  // 추가 데이터 로딩 (CSV 파싱)
+  loadAdditionalData: async () => {
+    try {
+      const { parseAllDistrictData } = await import('../utils/csvParser');
+      const additionalData = await parseAllDistrictData();
+      
+      set({ additionalData });
+      
+      // 로딩 완료 표시
+      const currentDatasets = get().loadedDatasets;
+      if (!currentDatasets.includes('additionalData')) {
+        set({ loadedDatasets: [...currentDatasets, 'additionalData'] });
+      }
+    } catch (error) {
+      console.error('추가 데이터 로딩 실패:', error);
+    }
+  },
+
   loadAllData: async () => {
-    const { loadElderlyData, loadTransportData, loadFacilityData, loadClubData, loadImbalanceData, loadParkgolfCourses } = get();
+    const { loadElderlyData, loadTransportData, loadFacilityData, loadClubData, loadImbalanceData, loadParkgolfCourses, loadAdditionalData } = get();
     
     await Promise.all([
       loadElderlyData(),
@@ -434,7 +464,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       loadFacilityData(),
       loadClubData(),
       loadImbalanceData(),
-      loadParkgolfCourses()
+      loadParkgolfCourses(),
+      loadAdditionalData()
     ]);
     
     // 데이터 로딩 완료 후 통계 계산

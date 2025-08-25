@@ -129,11 +129,15 @@ const ImbalanceStatsPanel = () => {
       const data = payload[0];
       const percentage = ((data.value / totalCount) * 100).toFixed(1);
       return (
-        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
-          <p className="font-bold text-gray-800 mb-1">{data.payload.name}</p>
-          <p className="text-sm text-gray-600">
-            {data.value}개구 ({percentage}%)
-          </p>
+        <div className="p-2 rounded-lg shadow-md border border-gray-200" style={{ backgroundColor: '#ffffff', opacity: '1 !important', zIndex: 9999 }}>
+          <div className="flex items-center gap-2">
+            <div 
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: data.payload.color }}
+            />
+            <span className="font-medium text-gray-800">{data.payload.name}</span>
+            <span className="text-sm text-gray-600">{data.value}개구 ({percentage}%)</span>
+          </div>
         </div>
       );
     }
@@ -162,7 +166,11 @@ const ImbalanceStatsPanel = () => {
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip 
+                content={<CustomTooltip />} 
+                wrapperStyle={{ backgroundColor: 'transparent', border: 'none' }}
+                contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+              />
             </PieChart>
           </ResponsiveContainer>
           

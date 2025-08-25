@@ -35,6 +35,7 @@ import ImbalanceRankingChart from './charts/ImbalanceRankingChart';
 import ParkgolfFacilityChart from './charts/ParkgolfFacilityChart';
 import DemandSupplyChart from './charts/DemandSupplyChart';
 import ImbalanceStatsPanel from './charts/ImbalanceStatsPanel';
+import DemandFactorsChart from './charts/DemandFactorsChart';
 
 const DashboardPanel = () => {
   const {
@@ -130,19 +131,47 @@ const DashboardPanel = () => {
       {/* 구별 현황 분석 */}
       <ImbalanceStatsPanel />
 
-      {/* 파크골프 관련 시설 비교 */}
-      <div className="bg-white rounded-lg p-4 shadow-sm border">
-        <h3 className="font-bold text-lg text-gray-800 mb-3">⛳ 파크골프 시설 현황</h3>
-        <div className="h-64">
-          <ParkgolfFacilityChart limit={8} />
+      {/* 수요 요인 분석 - 최대 너비 */}
+      <div className="bg-white rounded-lg p-6 shadow-sm border">
+        <div className="mb-6">
+          <h3 className="font-bold text-lg text-gray-800">🔍 수요 요인 분석</h3>
+          <p className="text-sm text-gray-600 mt-1">협회가입자수(실제 수요)와 다양한 시설 요인들의 상관관계</p>
         </div>
-      </div>
+        <div className="w-full h-[500px]">
+          <DemandFactorsChart showTrendLine={true} />
+        </div>
+        
+        {/* 세로 배치 범례 */}
+        <div className="mt-4 bg-gray-50 p-3 rounded-lg space-y-2 text-sm">
+          
+          {/* 색상 */}
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-gray-700 ">색상</span>
+            <span className="text-gray-600">:</span>
+            <span className="font-medium text-gray-700">주변 인프라</span>
+            <div className="flex gap-1">
+              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+            </div>
+            <span className="text-xs text-gray-500"></span>
+          </div>
 
-      {/* 수요공급 균형 분석 */}
-      <div className="bg-white rounded-lg p-4 shadow-sm border">
-        <h3 className="font-bold text-lg text-gray-800 mb-3">⚖️ 수요공급 균형</h3>
-        <div className="h-64">
-          <DemandSupplyChart showQuadrants={true} />
+          {/* 크기 */}
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-gray-700 ">크기</span>
+            <span className="text-gray-600">:</span>
+            <span className="font-medium text-gray-700">접근성</span>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+              <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
+            </div>
+            <span className="text-xs text-gray-500">지하철역수</span>
+          </div>
+
         </div>
       </div>
     </div>

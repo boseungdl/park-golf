@@ -1,0 +1,202 @@
+[
+  {
+    "district": "강남구",
+    "largeMarts": 72,
+    "sportsFacilities": 55,
+    "seniorCenters": 218,
+    "subwayStations": 21,
+    "clubMembers": 858
+  },
+  {
+    "district": "강동구",
+    "largeMarts": 59,
+    "sportsFacilities": 3,
+    "seniorCenters": 142,
+    "subwayStations": 15,
+    "clubMembers": 553
+  },
+  {
+    "district": "강북구",
+    "largeMarts": 29,
+    "sportsFacilities": 4,
+    "seniorCenters": 106,
+    "subwayStations": 3,
+    "clubMembers": 0
+  },
+  {
+    "district": "강서구",
+    "largeMarts": 49,
+    "sportsFacilities": 4,
+    "seniorCenters": 238,
+    "subwayStations": 9,
+    "clubMembers": 298
+  },
+  {
+    "district": "관악구",
+    "largeMarts": 32,
+    "sportsFacilities": 4,
+    "seniorCenters": 114,
+    "subwayStations": 4,
+    "clubMembers": 617
+  },
+  {
+    "district": "광진구",
+    "largeMarts": 35,
+    "sportsFacilities": 10,
+    "seniorCenters": 96,
+    "subwayStations": 11,
+    "clubMembers": 489
+  },
+  {
+    "district": "구로구",
+    "largeMarts": 53,
+    "sportsFacilities": 2,
+    "seniorCenters": 194,
+    "subwayStations": 7,
+    "clubMembers": 1032
+  },
+  {
+    "district": "금천구",
+    "largeMarts": 33,
+    "sportsFacilities": 1,
+    "seniorCenters": 89,
+    "subwayStations": 1,
+    "clubMembers": 919
+  },
+  {
+    "district": "노원구",
+    "largeMarts": 31,
+    "sportsFacilities": 4,
+    "seniorCenters": 239,
+    "subwayStations": 13,
+    "clubMembers": 798
+  },
+  {
+    "district": "도봉구",
+    "largeMarts": 18,
+    "sportsFacilities": 1,
+    "seniorCenters": 136,
+    "subwayStations": 7,
+    "clubMembers": 773
+  },
+  {
+    "district": "동대문구",
+    "largeMarts": 55,
+    "sportsFacilities": 3,
+    "seniorCenters": 137,
+    "subwayStations": 8,
+    "clubMembers": 608
+  },
+  {
+    "district": "동작구",
+    "largeMarts": 25,
+    "sportsFacilities": 4,
+    "seniorCenters": 137,
+    "subwayStations": 9,
+    "clubMembers": 658
+  },
+  {
+    "district": "마포구",
+    "largeMarts": 35,
+    "sportsFacilities": 9,
+    "seniorCenters": 175,
+    "subwayStations": 16,
+    "clubMembers": 592
+  },
+  {
+    "district": "서대문구",
+    "largeMarts": 24,
+    "sportsFacilities": 6,
+    "seniorCenters": 126,
+    "subwayStations": 6,
+    "clubMembers": 279
+  },
+  {
+    "district": "서초구",
+    "largeMarts": 34,
+    "sportsFacilities": 27,
+    "seniorCenters": 178,
+    "subwayStations": 12,
+    "clubMembers": 451
+  },
+  {
+    "district": "성동구",
+    "largeMarts": 30,
+    "sportsFacilities": 1,
+    "seniorCenters": 177,
+    "subwayStations": 8,
+    "clubMembers": 316
+  },
+  {
+    "district": "성북구",
+    "largeMarts": 54,
+    "sportsFacilities": 3,
+    "seniorCenters": 190,
+    "subwayStations": 5,
+    "clubMembers": 0
+  },
+  {
+    "district": "송파구",
+    "largeMarts": 63,
+    "sportsFacilities": 18,
+    "seniorCenters": 166,
+    "subwayStations": 11,
+    "clubMembers": 914
+  },
+  {
+    "district": "양천구",
+    "largeMarts": 35,
+    "sportsFacilities": 5,
+    "seniorCenters": 172,
+    "subwayStations": 6,
+    "clubMembers": 993
+  },
+  {
+    "district": "영등포구",
+    "largeMarts": 57,
+    "sportsFacilities": 7,
+    "seniorCenters": 188,
+    "subwayStations": 8,
+    "clubMembers": 1378
+  },
+  {
+    "district": "용산구",
+    "largeMarts": 33,
+    "sportsFacilities": 8,
+    "seniorCenters": 110,
+    "subwayStations": 7,
+    "clubMembers": 316
+  },
+  {
+    "district": "은평구",
+    "largeMarts": 40,
+    "sportsFacilities": 4,
+    "seniorCenters": 165,
+    "subwayStations": 4,
+    "clubMembers": 360
+  },
+  {
+    "district": "종로구",
+    "largeMarts": 25,
+    "sportsFacilities": 14,
+    "seniorCenters": 74,
+    "subwayStations": 9,
+    "clubMembers": 0
+  },
+  {
+    "district": "중구",
+    "largeMarts": 75,
+    "sportsFacilities": 14,
+    "seniorCenters": 51,
+    "subwayStations": 6,
+    "clubMembers": 412
+  },
+  {
+    "district": "중랑구",
+    "largeMarts": 20,
+    "sportsFacilities": 4,
+    "seniorCenters": 126,
+    "subwayStations": 5,
+    "clubMembers": 81
+  }
+]
