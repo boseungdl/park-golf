@@ -146,7 +146,7 @@ const ImbalanceStatsPanel = () => {
 
   return (
     <div className="bg-white rounded-lg p-6 shadow-sm border">
-      <h3 className="font-bold text-lg text-gray-800 mb-4">📊 구별 현황 분석</h3>
+      <h3 className="font-bold text-lg text-gray-800 mb-4">구별 현황 분석</h3>
       
       {/* 도넛 차트 */}
       <div className="flex items-center justify-center">

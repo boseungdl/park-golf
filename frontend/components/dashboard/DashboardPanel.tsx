@@ -66,7 +66,7 @@ const DashboardPanel = () => {
     return (
       <div className="h-full flex flex-col">
         <div className="flex items-center p-6 pb-4 border-b border-gray-200">
-          <div className="text-4xl mr-3">📊</div>
+          <div className="text-4xl mr-3"></div>
           <div>
             <h2 className="text-2xl font-bold text-gray-800">대시보드</h2>
             <p className="text-sm text-gray-500">파크골프장 데이터 분석</p>
@@ -91,7 +91,7 @@ const DashboardPanel = () => {
     <div className="space-y-4">
       {/* 서울시 전체 통계 */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4">
-        <h3 className="font-bold text-lg text-gray-800 mb-3">📍 서울시 전체 현황</h3>
+        <h3 className="font-bold text-lg text-gray-800 mb-3">서울시 전체 현황</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-lg p-3 shadow-sm">
             <div className="text-sm text-gray-600">파크골프장</div>
@@ -122,7 +122,7 @@ const DashboardPanel = () => {
 
       {/* 불균형 지수 우선순위 차트 */}
       <div className="bg-white rounded-lg p-4 shadow-sm border">
-        <h3 className="font-bold text-lg text-gray-800 mb-3">📊 불균형 지수 우선순위</h3>
+        <h3 className="font-bold text-lg text-gray-800 mb-3">불균형 지수 우선순위</h3>
         <div className="h-96">
           <ImbalanceRankingChart />
         </div>
@@ -134,7 +134,7 @@ const DashboardPanel = () => {
       {/* 수요 요인 분석 - 최대 너비 */}
       <div className="bg-white rounded-lg p-6 shadow-sm border">
         <div className="mb-6">
-          <h3 className="font-bold text-lg text-gray-800">🔍 수요 요인 분석</h3>
+          <h3 className="font-bold text-lg text-gray-800">수요 요인 분석</h3>
           <p className="text-sm text-gray-600 mt-1">협회가입자수(실제 수요)와 다양한 시설 요인들의 상관관계</p>
         </div>
         <div className="w-full h-[500px]">
@@ -338,7 +338,7 @@ const DashboardPanel = () => {
     <div className="h-full flex flex-col">
       {/* 헤더 */}
       <div className="flex items-center p-6 pb-4 border-b border-gray-200">
-        <div className="text-4xl mr-3">📊</div>
+        <div className="text-4xl mr-3"></div>
         <div>
           <h2 className="text-2xl font-bold text-gray-800">대시보드</h2>
           <p className="text-sm text-gray-500">

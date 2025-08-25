@@ -79,7 +79,7 @@ export default function Home() {
             <div className="h-full flex flex-col">
               {/* 헤더 - 고정 */}
               <div className="flex items-center p-6 pb-4 border-b border-gray-200">
-                <div className="text-4xl mr-3">🎯</div>
+                <div className="text-4xl mr-3"></div>
                 <div>
                   <h2 className="text-2xl font-bold text-gray-800">MCLP 분석</h2>
                   <p className="text-sm text-gray-500">최적 파크골프장 입지 분석</p>
