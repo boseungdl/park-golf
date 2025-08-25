@@ -1,17 +1,18 @@
 /**
- * ImbalanceStatsPanel.tsx - 불균형 지수 통계 패널
+ * ImbalanceStatsPanel.tsx - 불균형 지수 통계 도넛 차트
  * 
- * 🚧 현재 구현 단계: 신규 구현
- * 📊 복잡도: ⭐ (입문)
+ * 🚧 현재 구현 단계: 도넛 차트 구현
+ * 📊 복잡도: ⭐⭐ (중급)
  * 
  * 🔗 연관 파일:
- * - 📥 Import: dashboardStore
+ * - 📥 Import: recharts, dashboardStore
  * - 📤 Export: ImbalanceStatsPanel 컴포넌트
  * - 🔄 사용처: DashboardPanel
  * 
  * 📋 현재 포함 기능:
  * - ✅ 5단계 카테고리별 구 개수 통계
- * - ✅ 정책 제안 자동 생성
+ * - ✅ 도넛 차트 시각화
+ * - ✅ 중앙 총계 표시
  * - ✅ 시각적 색상 구분
  * 
  * 💡 사용 예시:
@@ -22,13 +23,20 @@
 
 'use client';
 
+import { 
+  PieChart, 
+  Pie, 
+  Cell, 
+  ResponsiveContainer, 
+  Tooltip 
+} from 'recharts';
 import { useDashboardStore } from '../../../store/dashboardStore';
 import { useMemo } from 'react';
 
 const ImbalanceStatsPanel = () => {
-  const { districtStats, imbalanceData, facilityData, parkgolfCourses } = useDashboardStore();
+  const { districtStats, imbalanceData, parkgolfCourses } = useDashboardStore();
 
-  // 색상 매핑 함수 (동일한 기준)
+  // 색상 매핑 함수
   const getImbalanceColor = (value: number): string => {
     if (value < -0.1) return '#2E7D32';      // 🟢 진한 초록 (과잉)
     if (value < 0.2) return '#66BB6A';       // 🟢 연한 초록 (적정)
@@ -78,27 +86,23 @@ const ImbalanceStatsPanel = () => {
     }).sort((a, b) => b.imbalanceIndex - a.imbalanceIndex);
   }, [districtStats, imbalanceData, parkgolfCourses]);
 
-  // 카테고리별 통계 계산
-  const categoryStats = useMemo(() => {
+  // 도넛 차트용 데이터 준비
+  const { pieData, totalCount } = useMemo(() => {
     const stats = {
       critical: 0,      // 심각
       shortage: 0,      // 부족
       attention: 0,     // 주의
       adequate: 0,      // 적정
       oversupply: 0,    // 과잉
-      totalShortage: 0  // 부족 지역 필요 파크골프장 수
     };
     
     chartData.forEach(d => {
       if (d.imbalanceIndex >= 0.6) {
         stats.critical++;
-        stats.totalShortage += Math.max(0, 3 - d.parkgolfCourses);
       } else if (d.imbalanceIndex >= 0.4) {
         stats.shortage++;
-        stats.totalShortage += Math.max(0, 2 - d.parkgolfCourses);
       } else if (d.imbalanceIndex >= 0.2) {
         stats.attention++;
-        stats.totalShortage += Math.max(0, 1 - d.parkgolfCourses);
       } else if (d.imbalanceIndex >= -0.1) {
         stats.adequate++;
       } else {
@@ -106,33 +110,84 @@ const ImbalanceStatsPanel = () => {
       }
     });
     
-    return stats;
+    const pieData = [
+      { name: '심각', value: stats.critical, color: '#E53935' },
+      { name: '부족', value: stats.shortage, color: '#FF7043' },
+      { name: '주의', value: stats.attention, color: '#FFA726' },
+      { name: '적정', value: stats.adequate, color: '#66BB6A' },
+      { name: '과잉', value: stats.oversupply, color: '#2E7D32' }
+    ].filter(item => item.value > 0); // 0개인 카테고리는 제외
+    
+    const totalCount = Object.values(stats).reduce((sum, count) => sum + count, 0);
+    
+    return { pieData, totalCount };
   }, [chartData]);
+
+  // 커스텀 툴팁
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload[0]) {
+      const data = payload[0];
+      const percentage = ((data.value / totalCount) * 100).toFixed(1);
+      return (
+        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
+          <p className="font-bold text-gray-800 mb-1">{data.payload.name}</p>
+          <p className="text-sm text-gray-600">
+            {data.value}개구 ({percentage}%)
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="bg-white rounded-lg p-6 shadow-sm border">
       <h3 className="font-bold text-lg text-gray-800 mb-4">📊 구별 현황 분석</h3>
       
-      {/* 통계 그리드 */}
-      <div className="grid grid-cols-5 gap-4 mb-6">
-        {[
-          { key: 'critical', label: '심각', color: '#E53935', count: categoryStats.critical },
-          { key: 'shortage', label: '부족', color: '#FF7043', count: categoryStats.shortage },
-          { key: 'attention', label: '주의', color: '#FFA726', count: categoryStats.attention },
-          { key: 'adequate', label: '적정', color: '#66BB6A', count: categoryStats.adequate },
-          { key: 'oversupply', label: '과잉', color: '#2E7D32', count: categoryStats.oversupply }
-        ].map(({ key, label, color, count }) => (
-          <div key={key} className="text-center p-4 rounded-lg bg-gray-50">
-            <div 
-              className="w-8 h-8 rounded-full mx-auto mb-2" 
-              style={{ backgroundColor: color }}
-            ></div>
-            <p className="text-sm font-medium text-gray-700 mb-1">{label}</p>
-            <p className="text-2xl font-bold" style={{ color }}>
-              {count}
-            </p>
+      {/* 도넛 차트 */}
+      <div className="flex items-center justify-center">
+        <div className="relative w-64 h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={100}
+                paddingAngle={2}
+                dataKey="value"
+              >
+                {pieData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip content={<CustomTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+          
+          {/* 중앙 텍스트 */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-800">{totalCount}</div>
+              <div className="text-sm text-gray-600">개 구</div>
+            </div>
           </div>
-        ))}
+        </div>
+        
+        {/* 범례 */}
+        <div className="ml-8 space-y-2">
+          {pieData.map((entry, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <div 
+                className="w-3 h-3 rounded-full" 
+                style={{ backgroundColor: entry.color }}
+              ></div>
+              <span className="text-sm font-medium text-gray-700">{entry.name}</span>
+              <span className="text-sm text-gray-500">({entry.value})</span>
+            </div>
+          ))}
+        </div>
       </div>
 
     </div>
