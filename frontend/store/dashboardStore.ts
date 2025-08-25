@@ -58,6 +58,30 @@ interface FacilityData {
   parkgolfCourses: number;
 }
 
+// 파크골프 클럽 데이터 타입
+interface ClubData {
+  district: string;
+  clubMembers: number;
+}
+
+// 불균형 지수 데이터 타입
+interface ImbalanceData {
+  district: string;
+  imbalanceIndex: number;
+}
+
+// 파크골프장 상세 데이터 타입
+interface ParkgolfCourse {
+  id: number;
+  name: string;
+  address: string;
+  holes: number;
+  daily_capacity: number | null;
+  latitude: number;
+  longitude: number;
+  district?: string; // 주소에서 추출한 구 정보
+}
+
 // 집계 통계 타입
 interface DistrictStats {
   district: string;
@@ -80,6 +104,9 @@ interface DashboardState {
   elderlyData: ElderlyData[];
   transportData: TransportData[];
   facilityData: FacilityData[];
+  clubData: ClubData[];
+  imbalanceData: ImbalanceData[];
+  parkgolfCourses: ParkgolfCourse[];
 
   // 집계 데이터
   seoulStats: {
@@ -87,6 +114,8 @@ interface DashboardState {
     elderlyPopulation: number;
     elderlyRate: number;
     totalFacilities: number;
+    totalParkgolfCourses: number;
+    totalClubMembers: number;
     averageAccessibility: number;
   } | null;
   
@@ -105,6 +134,9 @@ interface DashboardState {
   loadElderlyData: () => Promise<void>;
   loadTransportData: () => Promise<void>;
   loadFacilityData: () => Promise<void>;
+  loadClubData: () => Promise<void>;
+  loadImbalanceData: () => Promise<void>;
+  loadParkgolfCourses: () => Promise<void>;
   loadAllData: () => Promise<void>;
   
   calculateSeoulStats: () => void;
@@ -122,6 +154,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   elderlyData: [],
   transportData: [],
   facilityData: [],
+  clubData: [],
+  imbalanceData: [],
+  parkgolfCourses: [],
 
   seoulStats: null,
   districtStats: [],
@@ -297,14 +332,109 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     }
   },
 
+  // 파크골프 클럽 데이터 로딩
+  loadClubData: async () => {
+    try {
+      const response = await fetch('/data/2025/club_people_data.csv');
+      const arrayBuffer = await response.arrayBuffer();
+      
+      // EUC-KR 인코딩을 UTF-8로 디코딩
+      const decoder = new TextDecoder('euc-kr');
+      const text = decoder.decode(arrayBuffer);
+      
+      const lines = text.split('\n').slice(1); // 헤더 스킵
+      const clubData: ClubData[] = [];
+      
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        
+        const columns = line.split(',');
+        if (columns.length < 2) continue;
+        
+        const district = columns[0].trim().replace(/"/g, '');
+        const members = parseInt(columns[1].replace(/"/g, '')) || 0;
+        
+        if (district && members > 0) {
+          clubData.push({
+            district,
+            clubMembers: members
+          });
+        }
+      }
+      
+      set({ 
+        clubData,
+        loadedDatasets: [...get().loadedDatasets, 'club']
+      });
+      
+      console.log('⛳ 파크골프 클럽 데이터 로딩 완료:', clubData.length, '개 구');
+      
+    } catch (error) {
+      console.error('클럽 데이터 로딩 실패:', error);
+    }
+  },
+
+  // 불균형 지수 데이터 로딩
+  loadImbalanceData: async () => {
+    try {
+      const response = await fetch('/data/seoul-districts-imbalance.json');
+      const imbalanceJson = await response.json();
+      
+      const imbalanceData: ImbalanceData[] = [];
+      
+      for (const [district, index] of Object.entries(imbalanceJson)) {
+        imbalanceData.push({
+          district,
+          imbalanceIndex: index as number
+        });
+      }
+      
+      set({ 
+        imbalanceData,
+        loadedDatasets: [...get().loadedDatasets, 'imbalance']
+      });
+      
+      console.log('📊 불균형 지수 데이터 로딩 완료:', imbalanceData.length, '개 구');
+      
+    } catch (error) {
+      console.error('불균형 지수 데이터 로딩 실패:', error);
+    }
+  },
+
+  // 파크골프장 상세 데이터 로딩
+  loadParkgolfCourses: async () => {
+    try {
+      const response = await fetch('/data/seoul_park_golf.json');
+      const parkgolfJson = await response.json();
+      
+      const courses: ParkgolfCourse[] = parkgolfJson.park_golf_courses.map((course: any) => ({
+        ...course,
+        district: course.address.match(/(\w+구)/)?.[1] || '미분류' // 주소에서 구 이름 추출
+      }));
+      
+      set({ 
+        parkgolfCourses: courses,
+        loadedDatasets: [...get().loadedDatasets, 'parkgolf']
+      });
+      
+      console.log('⛳ 파크골프장 데이터 로딩 완료:', courses.length, '개 골프장');
+      
+    } catch (error) {
+      console.error('파크골프장 데이터 로딩 실패:', error);
+    }
+  },
+
   // 모든 데이터 로딩
   loadAllData: async () => {
-    const { loadElderlyData, loadTransportData, loadFacilityData } = get();
+    const { loadElderlyData, loadTransportData, loadFacilityData, loadClubData, loadImbalanceData, loadParkgolfCourses } = get();
     
     await Promise.all([
       loadElderlyData(),
       loadTransportData(), 
-      loadFacilityData()
+      loadFacilityData(),
+      loadClubData(),
+      loadImbalanceData(),
+      loadParkgolfCourses()
     ]);
     
     // 데이터 로딩 완료 후 통계 계산
@@ -314,13 +444,16 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   // 서울시 전체 통계 계산
   calculateSeoulStats: () => {
-    const { elderlyData, facilityData, transportData } = get();
+    const { elderlyData, facilityData, transportData, clubData, parkgolfCourses } = get();
     
     const totalPopulation = elderlyData.reduce((sum, item) => sum + item.totalPopulation, 0);
     const elderlyPopulation = elderlyData.reduce((sum, item) => sum + item.elderlyPopulation, 0);
     const totalFacilities = facilityData.reduce((sum, item) => 
       sum + item.seniorCenters + item.sportsGround + item.largeMarts + item.parkgolfCourses, 0
     );
+    // 실제 파크골프장 데이터에서 총 개수 계산
+    const totalParkgolfCourses = parkgolfCourses.length;
+    const totalClubMembers = clubData.reduce((sum, item) => sum + item.clubMembers, 0);
     const averageAccessibility = transportData.reduce((sum, item) => sum + item.accessibilityScore, 0) / transportData.length;
 
     set({
@@ -329,6 +462,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         elderlyPopulation,
         elderlyRate: totalPopulation > 0 ? (elderlyPopulation / totalPopulation * 100) : 0,
         totalFacilities,
+        totalParkgolfCourses,
+        totalClubMembers,
         averageAccessibility
       }
     });
@@ -336,7 +471,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   // 구별 통계 계산
   calculateDistrictStats: () => {
-    const { elderlyData, facilityData, transportData } = get();
+    const { elderlyData, facilityData, transportData, parkgolfCourses } = get();
     
     const districtMap: { [key: string]: DistrictStats } = {};
     
@@ -363,13 +498,27 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       stats.elderlyRate = stats.totalPopulation > 0 ? 
         (stats.elderlyPopulation / stats.totalPopulation * 100) : 0;
     });
+
+    // seoul_park_golf.json에서 address 기반으로 구별 파크골프장 수 계산
+    const districtParkgolfCount: { [key: string]: number } = {};
+    parkgolfCourses.forEach(course => {
+      // address에서 구 이름 추출 (예: "서울특별시 마포구 상암동..." -> "마포구")
+      const match = course.address.match(/서울특별시\s+(\S+구)/);
+      if (match) {
+        const district = match[1];
+        districtParkgolfCount[district] = (districtParkgolfCount[district] || 0) + 1;
+      }
+    });
     
-    // 시설 점수 추가
+    console.log('🏌️‍♂️ 구별 파크골프장 수:', districtParkgolfCount);
+    
+    // 시설 점수 추가 (실제 파크골프장 수 반영)
     facilityData.forEach(facility => {
       if (districtMap[facility.district]) {
+        const actualParkgolfCourses = districtParkgolfCount[facility.district] || 0;
         districtMap[facility.district].facilityScore = 
           (facility.seniorCenters * 2 + facility.sportsGround * 3 + 
-           facility.largeMarts * 1 + facility.parkgolfCourses * 5);
+           facility.largeMarts * 1 + actualParkgolfCourses * 5);
       }
     });
     

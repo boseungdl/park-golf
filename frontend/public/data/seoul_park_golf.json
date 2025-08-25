@@ -1,0 +1,235 @@
+{
+  "metadata": {
+    "title": "서울시 파크골프장 위치 정보",
+    "description": "서울시 내 파크골프장들의 상세 위치 정보 (위도, 경도 포함)",
+    "total_count": 25,
+    "created_date": "2025-08-25"
+  },
+  "park_golf_courses": [
+    {
+      "id": 1,
+      "name": "월드컵공원 파크골프장",
+      "address": "서울특별시 마포구 상암동478-1번지 일대",
+      "holes": 18,
+      "daily_capacity": 264,
+      "latitude": 37.5652,
+      "longitude": 126.8785
+    },
+    {
+      "id": 2,
+      "name": "서남물재생센터 파크골프장",
+      "address": "서울특별시 강서구 양천로201",
+      "holes": 9,
+      "daily_capacity": 150,
+      "latitude": 37.5185,
+      "longitude": 126.8421
+    },
+    {
+      "id": 3,
+      "name": "잠실운동장 파크골프장",
+      "address": "서울특별시 송파구 올림픽로25번지",
+      "holes": 9,
+      "daily_capacity": 200,
+      "latitude": 37.5142,
+      "longitude": 127.0734
+    },
+    {
+      "id": 4,
+      "name": "안양천(생태공원) 파크골프장",
+      "address": "서울특별시 양천구 목동411일대",
+      "holes": 18,
+      "daily_capacity": 144,
+      "latitude": 37.5263,
+      "longitude": 126.8646
+    },
+    {
+      "id": 5,
+      "name": "안양천(우안) 파크골프장",
+      "address": "서울특별시 구로구 신도림동271-64번지 일대",
+      "holes": 9,
+      "daily_capacity": null,
+      "latitude": 37.5084,
+      "longitude": 126.8909
+    },
+    {
+      "id": 6,
+      "name": "안양천 파크골프장",
+      "address": "서울특별시 구로구 고척동60-1번지 일대",
+      "holes": 18,
+      "daily_capacity": 288,
+      "latitude": 37.4987,
+      "longitude": 126.8577
+    },
+    {
+      "id": 7,
+      "name": "안양천 파크골프장",
+      "address": "서울특별시 금천구 가산동557-3",
+      "holes": 18,
+      "daily_capacity": 432,
+      "latitude": 37.4814,
+      "longitude": 126.8854
+    },
+    {
+      "id": 8,
+      "name": "안양천(양평누리체육공원) 파크골프장",
+      "address": "서울특별시 영등포구 양화동4-1일대",
+      "holes": 18,
+      "daily_capacity": 360,
+      "latitude": 37.5176,
+      "longitude": 126.8964
+    },
+    {
+      "id": 9,
+      "name": "중랑천 파크골프장 (노원구)",
+      "address": "서울특별시 노원구 월계동230-10",
+      "holes": 9,
+      "daily_capacity": 120,
+      "latitude": 37.6194,
+      "longitude": 127.0584
+    },
+    {
+      "id": 10,
+      "name": "중랑천 파크골프장 (동대문구)",
+      "address": "서울특별시 동대문구 장안동204번지 일대",
+      "holes": 9,
+      "daily_capacity": 144,
+      "latitude": 37.5731,
+      "longitude": 127.0456
+    },
+    {
+      "id": 11,
+      "name": "녹천교 파크골프장",
+      "address": "서울특별시 도봉구 창동796",
+      "holes": 6,
+      "daily_capacity": null,
+      "latitude": 37.6024,
+      "longitude": 127.0473
+    },
+    {
+      "id": 12,
+      "name": "중랑천 파크골프장 (광진구)",
+      "address": "서울특별시 광진구 중곡동455-9번지 일대",
+      "holes": 9,
+      "daily_capacity": 144,
+      "latitude": 37.5584,
+      "longitude": 127.0845
+    },
+    {
+      "id": 13,
+      "name": "중랑구립파크골프장",
+      "address": "서울특별시 중랑구 묵동 361-5 일대",
+      "holes": 9,
+      "daily_capacity": 160,
+      "latitude": 37.6021,
+      "longitude": 127.0735
+    },
+    {
+      "id": 14,
+      "name": "다락원 파크골프장",
+      "address": "서울특별시 도봉구 도봉동 1-28 일대",
+      "holes": 9,
+      "daily_capacity": null,
+      "latitude": 37.6689,
+      "longitude": 127.0469
+    },
+    {
+      "id": 15,
+      "name": "탄천 파크골프장",
+      "address": "서울특별시 강남구 세곡동 2-5 일대",
+      "holes": 27,
+      "daily_capacity": 540,
+      "latitude": 37.4567,
+      "longitude": 127.1023
+    },
+    {
+      "id": 16,
+      "name": "중랑물재생센터 파크골프장",
+      "address": "서울특별시 성동구 자동차시장3길 64",
+      "holes": 9,
+      "daily_capacity": 144,
+      "latitude": 37.5634,
+      "longitude": 127.0456
+    },
+    {
+      "id": 17,
+      "name": "살곶이공원 파크골프장",
+      "address": "서울특별시 성동구 사근동 104",
+      "holes": 2,
+      "daily_capacity": null,
+      "latitude": 37.5456,
+      "longitude": 127.0345
+    },
+    {
+      "id": 18,
+      "name": "망원유수지 파크골프장",
+      "address": "서울특별시 마포구 망원동 450-3",
+      "holes": 9,
+      "daily_capacity": 144,
+      "latitude": 37.5564,
+      "longitude": 126.9045
+    },
+    {
+      "id": 19,
+      "name": "중랑천파크골프장",
+      "address": "서울특별시 노원구 상계동 754-14",
+      "holes": 9,
+      "daily_capacity": 120,
+      "latitude": 37.6542,
+      "longitude": 127.0623
+    },
+    {
+      "id": 20,
+      "name": "난지천공원 파크골프장 연습장",
+      "address": "서울특별시 마포구 상암동 1538",
+      "holes": 6,
+      "daily_capacity": 96,
+      "latitude": 37.5689,
+      "longitude": 126.8856
+    },
+    {
+      "id": 21,
+      "name": "동작 파크골프장",
+      "address": "서울특별시 동작구 동작동 327",
+      "holes": 9,
+      "daily_capacity": 192,
+      "latitude": 37.5123,
+      "longitude": 126.9456
+    },
+    {
+      "id": 22,
+      "name": "안양천 파크골프장",
+      "address": "서울특별시 양천구 목동 411 일대",
+      "holes": 9,
+      "daily_capacity": 144,
+      "latitude": 37.5263,
+      "longitude": 126.8646
+    },
+    {
+      "id": 23,
+      "name": "잠실파크골프장",
+      "address": "서울특별시 송파구 잠실동 306 (잠실 유수지)",
+      "holes": 9,
+      "daily_capacity": 200,
+      "latitude": 37.5156,
+      "longitude": 127.0823
+    },
+    {
+      "id": 24,
+      "name": "여의도한강공원",
+      "address": "서울특별시 영등포구 여의도동 70-1",
+      "holes": 18,
+      "daily_capacity": 400,
+      "latitude": 37.5285,
+      "longitude": 126.9335
+    },
+    {
+      "id": 25,
+      "name": "관악 파크골프장",
+      "address": "서울특별시 관악구 신림동 산108-10",
+      "holes": 9,
+      "daily_capacity": 144,
+      "latitude": 37.4634,
+      "longitude": 126.9298
+    }
+  ]
+}

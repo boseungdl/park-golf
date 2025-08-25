@@ -1,12 +1,12 @@
 /**
  * DashboardPanel.tsx - 3단계 레이어 대시보드 메인 패널
  * 
- * 🚧 현재 구현 단계: 기본 구조
- * 📅 다음 확장 예정: 차트 및 시각화 추가
+ * 🚧 현재 구현 단계: 시각화 차트 통합 완료
+ * 📅 다음 확장 예정: 실시간 데이터 연동
  * 📊 복잡도: ⭐⭐ (중급)
  * 
  * 🔗 연관 파일:
- * - 📥 Import: dashboardStore, 하위 뷰 컴포넌트들
+ * - 📥 Import: dashboardStore, 차트 컴포넌트들
  * - 📤 Export: DashboardPanel 컴포넌트
  * - 🔄 사용처: page.tsx
  * 
@@ -16,6 +16,7 @@
  * - ✅ 인터랙티브 드릴다운
  * - ✅ 통계 요약 카드
  * - ✅ 순위 및 비교 기능
+ * - ✅ 차트 시각화 (막대, 파이, 레이더)
  * 
  * 💡 사용 예시:
  * ```jsx
@@ -27,6 +28,13 @@
 
 import { useEffect } from 'react';
 import { useDashboardStore } from '../../store/dashboardStore';
+import ElderlyRateBarChart from './charts/ElderlyRateBarChart';
+import FacilityPieChart from './charts/FacilityPieChart';
+import OverallRadarChart from './charts/OverallRadarChart';
+import ImbalanceRankingChart from './charts/ImbalanceRankingChart';
+import ParkgolfFacilityChart from './charts/ParkgolfFacilityChart';
+import DemandSupplyChart from './charts/DemandSupplyChart';
+import ImbalanceStatsPanel from './charts/ImbalanceStatsPanel';
 
 const DashboardPanel = () => {
   const {
@@ -53,14 +61,14 @@ const DashboardPanel = () => {
   }, [loadAllData, loadedDatasets]);
 
   // 로딩 화면
-  if (isLoading || loadedDatasets.length < 3) {
+  if (isLoading || loadedDatasets.length < 6) {
     return (
       <div className="h-full flex flex-col">
         <div className="flex items-center p-6 pb-4 border-b border-gray-200">
           <div className="text-4xl mr-3">📊</div>
           <div>
             <h2 className="text-2xl font-bold text-gray-800">대시보드</h2>
-            <p className="text-sm text-gray-500">데이터 시각화 및 분석</p>
+            <p className="text-sm text-gray-500">파크골프장 데이터 분석</p>
           </div>
         </div>
         
@@ -69,7 +77,7 @@ const DashboardPanel = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
             <p className="text-gray-600">데이터를 불러오는 중...</p>
             <p className="text-sm text-gray-400 mt-2">
-              로딩 완료: {loadedDatasets.length}/3
+              로딩 완료: {loadedDatasets.length}/6
             </p>
           </div>
         </div>
@@ -85,89 +93,56 @@ const DashboardPanel = () => {
         <h3 className="font-bold text-lg text-gray-800 mb-3">📍 서울시 전체 현황</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-lg p-3 shadow-sm">
-            <div className="text-sm text-gray-600">전체 인구</div>
+            <div className="text-sm text-gray-600">파크골프장</div>
+            <div className="text-xl font-bold text-green-600">
+              {seoulStats?.totalParkgolfCourses || 0}개
+            </div>
+          </div>
+          <div className="bg-white rounded-lg p-3 shadow-sm">
+            <div className="text-sm text-gray-600">클럽 가입자</div>
             <div className="text-xl font-bold text-blue-600">
+              {seoulStats?.totalClubMembers.toLocaleString() || '0'}명
+            </div>
+          </div>
+          <div className="bg-white rounded-lg p-3 shadow-sm">
+            <div className="text-sm text-gray-600">서울시 인구</div>
+            <div className="text-xl font-bold text-orange-600">
               {seoulStats?.totalPopulation.toLocaleString()}명
             </div>
           </div>
           <div className="bg-white rounded-lg p-3 shadow-sm">
-            <div className="text-sm text-gray-600">고령자 인구</div>
-            <div className="text-xl font-bold text-orange-600">
-              {seoulStats?.elderlyPopulation.toLocaleString()}명
-            </div>
-          </div>
-          <div className="bg-white rounded-lg p-3 shadow-sm">
             <div className="text-sm text-gray-600">고령화율</div>
-            <div className="text-xl font-bold text-red-600">
+            <div className="text-xl font-bold text-purple-600">
               {seoulStats?.elderlyRate.toFixed(1)}%
             </div>
           </div>
-          <div className="bg-white rounded-lg p-3 shadow-sm">
-            <div className="text-sm text-gray-600">관련 시설</div>
-            <div className="text-xl font-bold text-green-600">
-              {seoulStats?.totalFacilities.toLocaleString()}개
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* 상위 구 순위 */}
+      {/* 불균형 지수 우선순위 차트 */}
       <div className="bg-white rounded-lg p-4 shadow-sm border">
-        <h3 className="font-bold text-lg text-gray-800 mb-3">🏆 고령화율 상위 구</h3>
-        <div className="space-y-2">
-          {getTopDistricts('elderly').map((district, index) => (
-            <div 
-              key={district.district}
-              onClick={() => setSelectedDistrict(district.district)}
-              className="flex items-center justify-between p-2 rounded hover:bg-gray-50 cursor-pointer transition-colors"
-            >
-              <div className="flex items-center">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white mr-3 ${
-                  index === 0 ? 'bg-yellow-500' : 
-                  index === 1 ? 'bg-gray-400' :
-                  index === 2 ? 'bg-orange-400' : 'bg-gray-300'
-                }`}>
-                  {index + 1}
-                </div>
-                <span className="font-medium">{district.district}</span>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-red-600">{district.elderlyRate.toFixed(1)}%</div>
-                <div className="text-xs text-gray-500">
-                  {district.elderlyPopulation.toLocaleString()}명
-                </div>
-              </div>
-            </div>
-          ))}
+        <h3 className="font-bold text-lg text-gray-800 mb-3">📊 불균형 지수 우선순위</h3>
+        <div className="h-96">
+          <ImbalanceRankingChart />
         </div>
       </div>
 
-      {/* 시설 현황 상위 구 */}
+      {/* 구별 현황 분석 */}
+      <ImbalanceStatsPanel />
+
+      {/* 파크골프 관련 시설 비교 */}
       <div className="bg-white rounded-lg p-4 shadow-sm border">
-        <h3 className="font-bold text-lg text-gray-800 mb-3">🏢 시설 현황 상위 구</h3>
-        <div className="space-y-2">
-          {getTopDistricts('facility').map((district, index) => (
-            <div 
-              key={district.district}
-              onClick={() => setSelectedDistrict(district.district)}
-              className="flex items-center justify-between p-2 rounded hover:bg-gray-50 cursor-pointer transition-colors"
-            >
-              <div className="flex items-center">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white mr-3 ${
-                  index === 0 ? 'bg-green-500' : 
-                  index === 1 ? 'bg-green-400' :
-                  index === 2 ? 'bg-green-300' : 'bg-gray-300'
-                }`}>
-                  {index + 1}
-                </div>
-                <span className="font-medium">{district.district}</span>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-green-600">{district.facilityScore}점</div>
-                <div className="text-xs text-gray-500">시설 점수</div>
-              </div>
-            </div>
-          ))}
+        <h3 className="font-bold text-lg text-gray-800 mb-3">⛳ 파크골프 시설 현황</h3>
+        <div className="h-64">
+          <ParkgolfFacilityChart limit={8} />
+        </div>
+      </div>
+
+      {/* 수요공급 균형 분석 */}
+      <div className="bg-white rounded-lg p-4 shadow-sm border">
+        <h3 className="font-bold text-lg text-gray-800 mb-3">⚖️ 수요공급 균형</h3>
+        <div className="h-64">
+          <DemandSupplyChart showQuadrants={true} />
         </div>
       </div>
     </div>
@@ -234,64 +209,11 @@ const DashboardPanel = () => {
           </div>
         </div>
 
-        {/* 비교 차트 (간단한 바 차트) */}
+        {/* 파크골프 시설 상세 분석 */}
         <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <h3 className="font-bold text-lg text-gray-800 mb-3">📊 서울시 평균과 비교</h3>
-          
-          <div className="space-y-3">
-            {/* 고령화율 비교 */}
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span>고령화율</span>
-                <span className="font-medium">{selectedDistrictData.elderlyRate.toFixed(1)}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-red-500 h-2 rounded-full transition-all duration-300"
-                  style={{ 
-                    width: `${Math.min(selectedDistrictData.elderlyRate * 4, 100)}%` 
-                  }}
-                />
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                서울시 평균: {seoulStats?.elderlyRate.toFixed(1)}%
-              </div>
-            </div>
-
-            {/* 시설 점수 비교 */}
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span>시설 점수</span>
-                <span className="font-medium">{selectedDistrictData.facilityScore}점</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                  style={{ 
-                    width: `${Math.min(selectedDistrictData.facilityScore / 3, 100)}%` 
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* 교통 점수 비교 */}
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span>교통 접근성</span>
-                <span className="font-medium">{selectedDistrictData.transportScore}점</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{ 
-                    width: `${selectedDistrictData.transportScore}%` 
-                  }}
-                />
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                서울시 평균: {seoulStats?.averageAccessibility.toFixed(0)}점
-              </div>
-            </div>
+          <h3 className="font-bold text-lg text-gray-800 mb-3">⛳ {selectedDistrict} 파크골프 시설</h3>
+          <div className="h-64">
+            <ParkgolfFacilityChart district={selectedDistrict} />
           </div>
         </div>
 
@@ -391,8 +313,8 @@ const DashboardPanel = () => {
         <div>
           <h2 className="text-2xl font-bold text-gray-800">대시보드</h2>
           <p className="text-sm text-gray-500">
-            {currentLayer === 'seoul' ? '서울시 전체 현황' :
-             currentLayer === 'district' ? `${selectedDistrict} 상세 현황` :
+            {currentLayer === 'seoul' ? '파크골프장 현황 및 분석' :
+             currentLayer === 'district' ? `${selectedDistrict} 파크골프 분석` :
              `${selectedDistrict} 동별 현황`}
           </p>
         </div>
