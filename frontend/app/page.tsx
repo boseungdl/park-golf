@@ -1,9 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import MapView from '../components/map/MapView';
+import dynamic from 'next/dynamic';
 import DashboardPanel from '../components/dashboard/DashboardPanel';
 import { useMapStore } from '../store/mapStore';
+
+// MapView를 동적으로 로드 (SSR 비활성화)
+const MapView = dynamic(() => import('../components/map/MapView'), {
+  ssr: false,
+  loading: () => <div className="h-screen w-full bg-gray-100 flex items-center justify-center">지도 로딩중...</div>
+});
 
 export default function Home() {
   const [sidePanel, setSidePanel] = useState<'mclp' | 'dashboard' | null>(null);
