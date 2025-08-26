@@ -1,0 +1,72 @@
+# ===== 가장 큰 용량 차지하는 폴더들 =====
+# Node.js 의존성 (Docker에서 새로 설치하므로 불필요)
+node_modules/
+
+# 기존 빌드 결과물 (Docker에서 새로 빌드하므로 불필요)
+out/
+.next/
+dist/
+build/
+
+# ===== 개발 도구 및 캐시 파일들 =====
+# TypeScript 빌드 정보
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Next.js 캐시
+.next/
+
+# 로그 파일
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== 운영체제별 파일들 =====
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# ===== 개발 환경 설정 =====
+# IDE 설정
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 환경 변수 (보안상 제외)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ===== Git 관련 =====
+.git/
+.gitignore
+
+# ===== 분석/개발용 파일들 =====
+# 경계 분석 결과 (개발용)
+boundary-analysis-result.json
+boundary-analysis.js
+verify-mapping.js
+
+# docker-compose.yml (frontend 폴더에 있는 것)
+docker-compose.yml
+
+# ===== 백업 데이터 (용량 큰 파일들) =====
+# 이미 public/에 있으므로 중복 방지
+public/data/backup_old_data/
+
+# README 파일들 (필요시 주석 해제)
+# README.md
+# */README.md
