@@ -6,7 +6,6 @@ import DashboardPanel from '../components/dashboard/DashboardPanel';
 import { useMapStore } from '../store/mapStore';
 
 export default function Home() {
-  const [viewMode, setViewMode] = useState<'map' | 'dashboard'>('map');
   const [sidePanel, setSidePanel] = useState<'mclp' | 'dashboard' | null>(null);
   
   // mapStore에서 MCLP 분석 상태 가져오기
