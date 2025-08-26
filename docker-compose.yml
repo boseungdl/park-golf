@@ -1,0 +1,37 @@
+# Docker Compose 버전 지정
+version: '3.8'
+
+# 서비스 정의 섹션
+services:
+  # 서비스 이름 (원하는 이름으로 변경 가능)
+  parkgolf:
+    # 빌드 설정
+    build: 
+      # Dockerfile이 있는 디렉토리 경로
+      context: ./frontend
+      # 사용할 Dockerfile 이름
+      dockerfile: Dockerfile
+    
+    # 컨테이너 이름 (docker ps에서 보이는 이름)
+    container_name: parkgolf-app
+    
+    # 포트 매핑 (호스트:컨테이너)
+    ports:
+      - "80:80"      # HTTP - 브라우저에서 http://서버주소 로 접속
+      - "443:443"    # HTTPS - 브라우저에서 https://서버주소 로 접속 (SSL 인증서 필요)
+    
+    # 컨테이너가 종료되면 자동으로 다시 시작
+    restart: always
+    
+    # 환경 변수 설정
+    environment:
+      - NODE_ENV=production  # Next.js 프로덕션 모드
+    
+    # 볼륨 마운트 (선택사항 - 필요시 주석 해제)
+    # volumes:
+    #   # SSL 인증서 폴더 마운트 (Let's Encrypt 사용시)
+    #   - /etc/letsencrypt:/etc/letsencrypt:ro
+    #   # Nginx 설정 파일 커스터마이징 시
+    #   - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    #   # 로그 파일 저장하고 싶을 때
+    #   - ./logs:/var/log/nginx
